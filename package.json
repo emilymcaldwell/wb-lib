@@ -1,0 +1,20 @@
+{
+  "name": "tipps",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "npx tsc -w",
+    "install": "npm run build",
+    "build": "npm run build:tsc && npm run build:rollup",
+    "build:rollup": "rollup -c",
+    "build:tsc": "tsc"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.9.6",
+    "rollup-plugin-filesize": "^10.0.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  }
+}

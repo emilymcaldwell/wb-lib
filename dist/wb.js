@@ -1,3 +1,4 @@
+/*! wb-lib | https://github.com/emilymcaldwell/wb-lib/blob/main/LICENSE */
 function DOMRect_FromView(view, margin) {
     const margin2 = margin * 2;
     return new DOMRect(view.scrollX + margin, view.scrollY + margin, view.innerWidth - margin2, view.innerHeight - margin2);

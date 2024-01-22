@@ -1,4 +1,5 @@
 import filesize from "rollup-plugin-filesize";
+import license from "rollup-plugin-license";
 import terser from "@rollup/plugin-terser";
 import typescript from "@rollup/plugin-typescript";
 
@@ -9,12 +10,17 @@ const plugins = [
             declarationDir: undefined,
         },
     }),
+    license({
+        banner: {
+            content: '/*! wb-lib | https://github.com/emilymcaldwell/wb-lib/blob/main/LICENSE */',
+            commentStyle: 'none',
+        },
+    }),
     filesize({
         showMinifiedSize: false,
         showBrotliSize: true,
     }),
 ];
-
 export default [
     {
         input: "src/index.rollup.ts",

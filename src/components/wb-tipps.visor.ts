@@ -1,10 +1,10 @@
-import { DOMRect_FromView } from "../utilities/index"
+import { DOMRect_FromView, $Frozen, $Assign, $Style, $Attr, $ElemEmplace, $ElemQuery, $ElemQueryAll, $ElemBounds, $ElemDocument } from "../utilities/index"
 import { Tipps } from "./wb-tipps";
 
 export class TippsVisor extends HTMLElement
 {
   static readonly QN: string = 'tipps-visor';
-  static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = Object.freeze([TippsVisor]);
+  static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = $Frozen([TippsVisor]);
 
   Pursue: boolean = true;
   Margin: number = 4;
@@ -20,32 +20,35 @@ export class TippsVisor extends HTMLElement
   #DelayHandle: number | undefined;
   #LoiterHandle: number | undefined;
 
-  get #SlottedCL(): DOMTokenList | null
-  {
-    return this.firstElementChild?.classList ?? null;
-  }
+  #SlottedClassList = () => this.firstElementChild?.classList ?? null;
 
   constructor() {
     super();
 
     // this._internals = this.attachInternals();
     // this.ShadowRoot = this.attachShadow({mode: 'closed'});
-    let ShadowRoot = this.attachShadow({mode: 'closed'});
-    let ShadowDoc = ShadowRoot.ownerDocument;
+    const ShadowRoot = this.attachShadow({mode: 'closed'});
+    const ShadowDoc = $ElemDocument(ShadowRoot);
 
-    let we = this.#WrapperElement = ShadowRoot.appendChild(ShadowDoc.createElement("div"));
-    we.style.position = "absolute";
-    we.style.pointerEvents = "none";
+    // let we = this.#WrapperElement = ShadowRoot.appendChild(ShadowDoc.createElement("div"));
+    // we.style.position = "absolute";
+    // we.style.pointerEvents = "none";
+    // this.#SlotElement = we.appendChild(ShadowDoc.createElement("slot"));
+    // this.#setPosition(0,0);
 
-    this.#SlotElement = we.appendChild(ShadowDoc.createElement("slot"));
+    const we = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
+    // $Assign(we.style, { position: "absolute", pointerEvents: "none" });
+    $Style(we, { position: "absolute", pointerEvents: "none" });
+    this.#setPosition(0,0);
+    this.#SlotElement = $ElemEmplace(ShadowDoc, we, "slot");
   }
 
   // connectedCallback() { }
 
-  updateIndicator(newIndicator: string)
+  setIdr(newIndicator: string)
   {
     // console.log({msg: "[TippsVisor::updateIndicator] Received Indicator update request"});
-    const elemCL = this.#SlottedCL;
+    const elemCL = this.#SlottedClassList();
     if (elemCL?.contains(this.#Indicator))
     {
       elemCL.remove(this.#Indicator);
@@ -61,21 +64,27 @@ export class TippsVisor extends HTMLElement
 
   #setPosition(pixelsX: number, pixelsY: number)
   {
-    // console.info({msg: '[TippsVisor::setPosition] Updating position', x: this.AccumX, y: this.AccumY});
-    const WrapperStyle = this.#WrapperElement.style;
-    // WrapperStyle.left = `${Number.isNaN(pixelsX) ? 0 : pixelsX}px`;
-    // WrapperStyle.top = `${Number.isNaN(pixelsY) ? 0 : pixelsY}px`;
-    WrapperStyle.left = pixelsX + 'px';
-    WrapperStyle.top = pixelsY + 'px';
+    $Style(this.#WrapperElement, { left: pixelsX + 'px', top: pixelsY + 'px'});
+    // $Assign(this.#WrapperElement.style, { left: pixelsX + 'px', top: pixelsY + 'px'});
   }
+  // #setPosition(pixelsX: number, pixelsY: number)
+  // {
+  //   // console.info({msg: '[TippsVisor::setPosition] Updating position', x: this.AccumX, y: this.AccumY});
+  //   const WrapperStyle = this.#WrapperElement.style;
+  //   // WrapperStyle.left = `${Number.isNaN(pixelsX) ? 0 : pixelsX}px`;
+  //   // WrapperStyle.top = `${Number.isNaN(pixelsY) ? 0 : pixelsY}px`;
+  //   WrapperStyle.left = pixelsX + 'px';
+  //   WrapperStyle.top = pixelsY + 'px';
+  // }
 
   #onMouseMove = (ev: MouseEvent) =>
   {
-    const targetView = this.#CurrentElement?.ownerDocument?.defaultView;
+    const targetView = $ElemDocument(this.#CurrentElement)?.defaultView;
     if (!targetView) return;
 
     // const targetRect = this.CurrentTarget!.getBoundingClientRect();
-    const wrapperRect: DOMRect = this.#WrapperElement.getBoundingClientRect();
+    // const wrapperRect: DOMRect = this.#WrapperElement.getBoundingClientRect();
+    const wrapperRect: DOMRect = $ElemBounds(this.#WrapperElement);
 
     // No API to get cursor size, assume roughly 32x32 (especially true for custom web cursors)
     const mouseRect: DOMRect = new DOMRect(ev.pageX, ev.pageY, 18, 18);
@@ -86,9 +95,9 @@ export class TippsVisor extends HTMLElement
     const viewRect: DOMRect = DOMRect_FromView(targetView, this.Margin);
 
     // Our initial/desirable position is top-right of cursor
-    let position = new DOMPoint(mouseRect.x, (mouseRect.y - wrapperRect.height));
+    const position = new DOMPoint(mouseRect.x, (mouseRect.y - wrapperRect.height));
 
-    let overrun = new DOMPoint(
+    const overrun = new DOMPoint(
       Math.max(0, (viewRect.left - position.x)) + Math.min(0, (viewRect.right - (position.x + wrapperRect.width))),
       Math.max(0, (viewRect.top - position.y)) + Math.min(0, (viewRect.bottom - position.y))
     );
@@ -109,13 +118,13 @@ export class TippsVisor extends HTMLElement
   #postDelay(tipps: Tipps, ev: MouseEvent, element: HTMLElement)
   {
     this.#DelayHandle = void 0;
-    this.#SlottedCL?.add(this.#Indicator);
-    this.#WrapperElement.style.zIndex = element.style.zIndex ?? "0";
-    this.#setContent(element.getAttribute(tipps.Source));
+    this.#SlottedClassList()?.add(this.#Indicator);
+    this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
+    this.#setContent($Attr(element, tipps.Source));
     if (this.Pursue)
     {
       this.#onMouseMove(ev);
-      element.ownerDocument.addEventListener("mousemove", this.#onMouseMove);
+      $ElemDocument(element).addEventListener("mousemove", this.#onMouseMove);
     }
     else
     {
@@ -124,7 +133,7 @@ export class TippsVisor extends HTMLElement
       // const pixelsX = (elemRect.right - (elemRect.width * enroachment));
       // const pixelsY = (elemRect.bottom - (elemRect.height * enroachment));
       // this.setPosition(pixelsX, pixelsY);
-      const elemRect = element.getBoundingClientRect();
+      const elemRect = $ElemBounds(element);
       this.#setPosition(elemRect.right - this.Margin, elemRect.bottom - this.Margin);
     }
   }
@@ -154,7 +163,7 @@ export class TippsVisor extends HTMLElement
     this.#LoiterHandle = void 0;
     this.#setContent();
     this.#WrapperElement.style.zIndex = "-1";
-    this.#SlottedCL?.remove(this.#Indicator);
+    this.#SlottedClassList()?.remove(this.#Indicator);
   }
 
   onTippsDown(tipps: Tipps, ev: MouseEvent)
@@ -162,7 +171,7 @@ export class TippsVisor extends HTMLElement
     this.#DelayHandle = clearTimeout(this.#DelayHandle)!;
     this.#LoiterHandle = clearTimeout(this.#LoiterHandle)!;
 
-    this.#CurrentElement?.ownerDocument.removeEventListener("mousemove", this.#onMouseMove);
+    $ElemDocument(this.#CurrentElement)?.removeEventListener("mousemove", this.#onMouseMove);
     // if (ev.type === "click" || ev.type === "mousedown") this.#postLoiter(tipps);
     // else this.#LoiterHandle = setTimeout(() => this.#postLoiter(tipps), tipps.Loiter);
     if (ev.type === "click" || ev.type === "mousedown") this.#postLoiter();

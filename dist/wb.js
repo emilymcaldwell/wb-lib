@@ -4,9 +4,18 @@ function DOMRect_FromView(view, margin) {
     return new DOMRect(view.scrollX + margin, view.scrollY + margin, view.innerWidth - margin2, view.innerHeight - margin2);
 }
 
+const $Assign = Object.assign;
+const $Frozen = Object.freeze;
+const $Style = (elem, obj) => $Assign(elem.style, obj);
+const $Attr = (elem, attr) => elem.getAttribute(attr);
+const $ElemEmplace = (document, parent, tagName, options) => parent.appendChild(document.createElement(tagName, options));
+const $ElemQueryAll = ((elem, query) => elem.querySelectorAll(query));
+const $ElemBounds = ((elem) => elem?.getBoundingClientRect());
+const $ElemDocument = ((elem) => elem?.ownerDocument);
+
 class TippsVisor extends HTMLElement {
     static QN = 'tipps-visor';
-    static QR = Object.freeze([TippsVisor]);
+    static QR = $Frozen([TippsVisor]);
     Pursue = true;
     Margin = 4;
     #WrapperElement;
@@ -15,20 +24,18 @@ class TippsVisor extends HTMLElement {
     #CurrentElement = null;
     #DelayHandle;
     #LoiterHandle;
-    get #SlottedCL() {
-        return this.firstElementChild?.classList ?? null;
-    }
+    #SlottedClassList = () => this.firstElementChild?.classList ?? null;
     constructor() {
         super();
-        let ShadowRoot = this.attachShadow({ mode: 'closed' });
-        let ShadowDoc = ShadowRoot.ownerDocument;
-        let we = this.#WrapperElement = ShadowRoot.appendChild(ShadowDoc.createElement("div"));
-        we.style.position = "absolute";
-        we.style.pointerEvents = "none";
-        this.#SlotElement = we.appendChild(ShadowDoc.createElement("slot"));
+        const ShadowRoot = this.attachShadow({ mode: 'closed' });
+        const ShadowDoc = $ElemDocument(ShadowRoot);
+        const we = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
+        $Style(we, { position: "absolute", pointerEvents: "none" });
+        this.#setPosition(0, 0);
+        this.#SlotElement = $ElemEmplace(ShadowDoc, we, "slot");
     }
-    updateIndicator(newIndicator) {
-        const elemCL = this.#SlottedCL;
+    setIdr(newIndicator) {
+        const elemCL = this.#SlottedClassList();
         if (elemCL?.contains(this.#Indicator)) {
             elemCL.remove(this.#Indicator);
             elemCL.add(newIndicator);
@@ -39,19 +46,17 @@ class TippsVisor extends HTMLElement {
         (this.querySelector('slot[name=prompt]') ?? this.#SlotElement).innerText = content ?? '';
     }
     #setPosition(pixelsX, pixelsY) {
-        const WrapperStyle = this.#WrapperElement.style;
-        WrapperStyle.left = pixelsX + 'px';
-        WrapperStyle.top = pixelsY + 'px';
+        $Style(this.#WrapperElement, { left: pixelsX + 'px', top: pixelsY + 'px' });
     }
     #onMouseMove = (ev) => {
-        const targetView = this.#CurrentElement?.ownerDocument?.defaultView;
+        const targetView = $ElemDocument(this.#CurrentElement)?.defaultView;
         if (!targetView)
             return;
-        const wrapperRect = this.#WrapperElement.getBoundingClientRect();
+        const wrapperRect = $ElemBounds(this.#WrapperElement);
         const mouseRect = new DOMRect(ev.pageX, ev.pageY, 18, 18);
         const viewRect = DOMRect_FromView(targetView, this.Margin);
-        let position = new DOMPoint(mouseRect.x, (mouseRect.y - wrapperRect.height));
-        let overrun = new DOMPoint(Math.max(0, (viewRect.left - position.x)) + Math.min(0, (viewRect.right - (position.x + wrapperRect.width))), Math.max(0, (viewRect.top - position.y)) + Math.min(0, (viewRect.bottom - position.y)));
+        const position = new DOMPoint(mouseRect.x, (mouseRect.y - wrapperRect.height));
+        const overrun = new DOMPoint(Math.max(0, (viewRect.left - position.x)) + Math.min(0, (viewRect.right - (position.x + wrapperRect.width))), Math.max(0, (viewRect.top - position.y)) + Math.min(0, (viewRect.bottom - position.y)));
         position.x += (overrun.x ? overrun.x : (mouseRect.width * (overrun.y / wrapperRect.height)));
         position.y += overrun.y;
         position.x = Math.min(position.x, viewRect.right - wrapperRect.width);
@@ -60,15 +65,15 @@ class TippsVisor extends HTMLElement {
     };
     #postDelay(tipps, ev, element) {
         this.#DelayHandle = void 0;
-        this.#SlottedCL?.add(this.#Indicator);
-        this.#WrapperElement.style.zIndex = element.style.zIndex ?? "0";
-        this.#setContent(element.getAttribute(tipps.Source));
+        this.#SlottedClassList()?.add(this.#Indicator);
+        this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
+        this.#setContent($Attr(element, tipps.Source));
         if (this.Pursue) {
             this.#onMouseMove(ev);
-            element.ownerDocument.addEventListener("mousemove", this.#onMouseMove);
+            $ElemDocument(element).addEventListener("mousemove", this.#onMouseMove);
         }
         else {
-            const elemRect = element.getBoundingClientRect();
+            const elemRect = $ElemBounds(element);
             this.#setPosition(elemRect.right - this.Margin, elemRect.bottom - this.Margin);
         }
     }
@@ -89,12 +94,12 @@ class TippsVisor extends HTMLElement {
         this.#LoiterHandle = void 0;
         this.#setContent();
         this.#WrapperElement.style.zIndex = "-1";
-        this.#SlottedCL?.remove(this.#Indicator);
+        this.#SlottedClassList()?.remove(this.#Indicator);
     }
     onTippsDown(tipps, ev) {
         this.#DelayHandle = clearTimeout(this.#DelayHandle);
         this.#LoiterHandle = clearTimeout(this.#LoiterHandle);
-        this.#CurrentElement?.ownerDocument.removeEventListener("mousemove", this.#onMouseMove);
+        $ElemDocument(this.#CurrentElement)?.removeEventListener("mousemove", this.#onMouseMove);
         if (ev.type === "click" || ev.type === "mousedown")
             this.#postLoiter();
         else
@@ -112,71 +117,79 @@ const AN_delay = "delay";
 const AN_loiter = "loiter";
 class Tipps extends HTMLElement {
     static QN = 'tipps';
-    static QR = Object.freeze([...TippsVisor.QR, Tipps]);
-    static observedAttributes = Object.freeze([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
+    static QR = $Frozen([...TippsVisor.QR, Tipps]);
+    static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
     #Visor = new TippsVisor();
-    #DocumentObserver = new MutationObserver((mutations, observer) => {
-        let targetSelector = this.#Target;
+    #DocumentObserver = new MutationObserver((mutations) => {
+        const targetSelector = this.#Target;
         for (const mutation of mutations) {
-            if (mutation.type === "childList") {
-                mutation.removedNodes.forEach(rn => this.#updateEvents(rn, targetSelector, true));
+            if (mutation.target === this)
+                return;
+            else if (mutation.type === "childList") {
+                mutation.removedNodes.forEach(rn => this.#updateEvents(rn, targetSelector, 1));
                 mutation.addedNodes.forEach(an => this.#updateEvents(an, targetSelector));
             }
             else if (mutation.type === "attributes") {
-                this.#updateEvents(mutation.target, targetSelector, true);
+                this.#updateEvents(mutation.target, targetSelector, 1);
                 this.#updateEvents(mutation.target, targetSelector);
             }
         }
     });
     #onTippsUp = (ev) => this.#Visor.onTippsUp(this, ev);
     #onTippsDown = (ev) => this.#Visor.onTippsDown(this, ev);
-    #updateEvents(node, selector, remove = false) {
-        const ShouldUpdate = node instanceof HTMLElement && node.matches(selector);
-        if (ShouldUpdate) {
-            const targetFn = remove ? node.removeEventListener : node.addEventListener;
-            targetFn.bind(node)("mouseover", this.#onTippsUp);
-            targetFn.bind(node)("mouseout", this.#onTippsDown);
-            targetFn.bind(node)("mousedown", this.#onTippsDown);
-            targetFn.bind(node)("click", this.#onTippsDown);
+    #updateEvents(node, selector, remove = 0) {
+        if (node instanceof HTMLElement && node.matches(selector)) {
+            const targetFn = (remove ? node.removeEventListener : node.addEventListener).bind(node);
+            targetFn("mouseover", this.#onTippsUp);
+            ["mouseout", "mousedown", "click"].forEach(e => targetFn(e, this.#onTippsDown));
         }
     }
-    get #Target() { return this.getAttribute(AN_target) ?? '[title]'; }
-    get #Indicator() { return this.getAttribute(AN_indicator) ?? 'active'; }
-    get Source() { return this.getAttribute(AN_source) ?? 'title'; }
+    get #Target() { return $Attr(this, AN_target) ?? '[title]'; }
+    get #Indicator() { return $Attr(this, AN_indicator) ?? 'active'; }
+    get Source() { return $Attr(this, AN_source) ?? 'title'; }
     get #Pursue() {
         if (!this.hasAttribute(AN_pursue))
             return false;
-        const value = this.getAttribute(AN_pursue);
+        const value = $Attr(this, AN_pursue);
         if (!value)
             return true;
         return !(/^\s*(false|0|off)\s*$/i.test(value));
     }
-    get #Margin() { return Number(this.getAttribute(AN_margin) ?? 4); }
-    get Delay() { return Number(this.getAttribute(AN_delay) ?? 700); }
-    get Loiter() { return Number(this.getAttribute(AN_loiter) ?? 300); }
+    get #Margin() { return Number($Attr(this, AN_margin) ?? 4); }
+    get Delay() { return Number($Attr(this, AN_delay) ?? 700); }
+    get Loiter() { return Number($Attr(this, AN_loiter) ?? 300); }
     connectedCallback() {
         const baseNode = this.parentNode;
         if (baseNode) {
             const targetSelector = this.#Target;
-            const targetQuery = baseNode.querySelectorAll(targetSelector);
-            for (const existingNode of targetQuery) {
-                this.#updateEvents(existingNode, targetSelector, true);
+            for (const existingNode of $ElemQueryAll(baseNode, targetSelector)) {
+                this.#updateEvents(existingNode, targetSelector, 1);
                 this.#updateEvents(existingNode, targetSelector);
             }
             this.#DocumentObserver.disconnect();
-            this.#DocumentObserver.observe(baseNode, { childList: true, subtree: true, characterData: false });
-            this.#Visor.append(...this.children);
-            baseNode.appendChild(this.#Visor);
+            this.#DocumentObserver.observe(baseNode, {
+                childList: true, subtree: true,
+                attributeFilter: Tipps.observedAttributes
+            });
+            $ElemDocument(this).body.appendChild(this.#Visor).append(...this.children);
             this.#Visor.Pursue = this.#Pursue;
-            this.#Visor.updateIndicator(this.#Indicator);
+            this.#Visor.setIdr(this.#Indicator);
         }
     }
     attributeChangedCallback(name, oldValue, newValue) {
         switch (name) {
-            case AN_target: return this.connectedCallback();
-            case AN_pursue: return void (this.#Visor.Pursue = this.#Pursue);
-            case AN_indicator: return void (this.#Visor.updateIndicator(this.#Indicator));
-            case AN_margin: return void (this.#Visor.Margin = this.#Margin);
+            case AN_target:
+                this.connectedCallback();
+                break;
+            case AN_pursue:
+                this.#Visor.Pursue = this.#Pursue;
+                break;
+            case AN_indicator:
+                this.#Visor.setIdr(this.#Indicator);
+                break;
+            case AN_margin:
+                this.#Visor.Margin = this.#Margin;
+                break;
         }
     }
 }

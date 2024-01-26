@@ -6,34 +6,36 @@ export const AN_margin     : string = "margin";
 export const AN_delay      : string = "delay";
 export const AN_loiter     : string = "loiter";
 
+import { $Assign, $Frozen, $Style, $Attr, $ElemEmplace, $ElemQuery, $ElemQueryAll, $ElemDocument } from "../utilities/index"
 import { TippsVisor } from "./wb-tipps.visor";
 export { TippsVisor };
 
 export class Tipps extends HTMLElement
 {
   static readonly QN: string = 'tipps';
-  static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = Object.freeze([...TippsVisor.QR, Tipps]);
+  static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = $Frozen([...TippsVisor.QR, Tipps]);
 
-  static observedAttributes = Object.freeze([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
+  static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
 
   #Visor: TippsVisor = new TippsVisor();
 
-  #DocumentObserver: MutationObserver = new MutationObserver((mutations: MutationRecord[], observer: MutationObserver) =>
+  #DocumentObserver: MutationObserver = new MutationObserver((mutations: MutationRecord[]) =>
   {
-    let targetSelector = this.#Target;
+    const targetSelector = this.#Target;
     for (const mutation of mutations)
     {
-      if (mutation.type === "childList")
+      if (mutation.target === this) return;
+      else if (mutation.type === "childList")
       {
         // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['childList'] mutation event"});
-        mutation.removedNodes.forEach(rn => this.#updateEvents(rn, targetSelector, true))
+        mutation.removedNodes.forEach(rn => this.#updateEvents(rn, targetSelector, 1))
         mutation.addedNodes.forEach(an => this.#updateEvents(an, targetSelector));
       }
       else if (mutation.type === "attributes")
       {
         // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['attributes'] mutation event"});
         // console.log({msg: "[DocumentObserver::onObservedMutation]   Attribute Changed", attr: mutation.attributeName});
-        this.#updateEvents(mutation.target, targetSelector, true);
+        this.#updateEvents(mutation.target, targetSelector, 1);
         this.#updateEvents(mutation.target, targetSelector);
       }
     }
@@ -42,34 +44,36 @@ export class Tipps extends HTMLElement
   #onTippsUp = (ev: MouseEvent) => this.#Visor.onTippsUp(this, ev);
   #onTippsDown = (ev: MouseEvent) => this.#Visor.onTippsDown(this, ev);
 
-  #updateEvents(node: Node, selector: string, remove: boolean = false)
+  #updateEvents(node: Node, selector: string, remove: number = 0)
   {
-    const ShouldUpdate = node instanceof HTMLElement && node.matches(selector);
     // console.log({msg: "[Tipps::updateEvents] Received request to update events", elem: node, isTargetted: ShouldUpdate});
-    if (ShouldUpdate)
+    if (node instanceof HTMLElement && node.matches(selector))
     {
-      const targetFn = remove ? node.removeEventListener : node.addEventListener;
+      const targetFn = (remove ? node.removeEventListener : node.addEventListener).bind(node);
       // console.log({msg: `[Tipps::updateEvents]   ${remove ? "Removing" : "Adding"} events`, elem: node});
-      targetFn.bind(node)("mouseover", this.#onTippsUp);
-      targetFn.bind(node)("mouseout", this.#onTippsDown);
-      targetFn.bind(node)("mousedown", this.#onTippsDown);
-      targetFn.bind(node)("click", this.#onTippsDown);
+      // targetFn.bind(node)("mouseover", this.#onTippsUp);
+      // targetFn.bind(node)("mouseout", this.#onTippsDown);
+      // targetFn.bind(node)("mousedown", this.#onTippsDown);
+      // targetFn.bind(node)("click", this.#onTippsDown);
+      targetFn("mouseover", this.#onTippsUp);
+      // @ts-ignore
+      ["mouseout", "mousedown", "click"].forEach(e => targetFn(e, this.#onTippsDown));
     }
   }
 
-  get #Target() : string { return this.getAttribute(AN_target) ?? '[title]'; }
-  get #Indicator() : string { return this.getAttribute(AN_indicator) ?? 'active'; }
-  get Source() : string { return this.getAttribute(AN_source) ?? 'title'; }
+  get #Target() : string { return $Attr(this, AN_target) ?? '[title]'; }
+  get #Indicator() : string { return $Attr(this, AN_indicator) ?? 'active'; }
+  get Source() : string { return $Attr(this, AN_source) ?? 'title'; }
   get #Pursue() : boolean
   {
     if (!this.hasAttribute(AN_pursue)) return false;
-    const value = this.getAttribute(AN_pursue);
+    const value = $Attr(this, AN_pursue);
     if (!value) return true; // empty valued attribute
     return !(/^\s*(false|0|off)\s*$/i.test(value));
   }
-  get #Margin()  : number { return Number(this.getAttribute(AN_margin) ?? 4); }
-  get Delay()  : number { return Number(this.getAttribute(AN_delay) ?? 700); }
-  get Loiter() : number { return Number(this.getAttribute(AN_loiter) ?? 300); }
+  get #Margin()  : number { return Number($Attr(this, AN_margin) ?? 4); }
+  get Delay()  : number { return Number($Attr(this, AN_delay) ?? 700); }
+  get Loiter() : number { return Number($Attr(this, AN_loiter) ?? 300); }
 
   // set Target(v) { v ? this.setAttribute(AN_target, v) : this.removeAttribute(AN_target); }
   // set Indicator(v) { v ? this.setAttribute(AN_indicator, v) : this.removeAttribute(AN_indicator); }
@@ -86,21 +90,22 @@ export class Tipps extends HTMLElement
     if (baseNode)
     {
       const targetSelector = this.#Target;
-      const targetQuery = baseNode.querySelectorAll(targetSelector);
-      // console.log(targetQuery);
-      for (const existingNode of targetQuery)
+      for (const existingNode of $ElemQueryAll(baseNode, targetSelector))
       {
-        this.#updateEvents(existingNode, targetSelector, true);
-        this.#updateEvents(existingNode, targetSelector)
+        this.#updateEvents(existingNode, targetSelector, 1);
+        this.#updateEvents(existingNode, targetSelector);
       }
 
       this.#DocumentObserver.disconnect();
-      this.#DocumentObserver.observe(baseNode, { childList: true, subtree: true, characterData: false });
+      this.#DocumentObserver.observe(baseNode, {
+        childList: true, subtree: true,
+        // @ts-ignore
+        attributeFilter: Tipps.observedAttributes
+      });
 
-      this.#Visor.append(...this.children);
-      baseNode.appendChild(this.#Visor);
+      $ElemDocument(this).body.appendChild(this.#Visor).append(...this.children);
       this.#Visor.Pursue = this.#Pursue;
-      this.#Visor.updateIndicator(this.#Indicator);
+      this.#Visor.setIdr(this.#Indicator);
     }
   }
 
@@ -109,10 +114,10 @@ export class Tipps extends HTMLElement
     // console.log({msg: "[Tipps::attributeChangedCallback] Received Attribute changed notice", name: name});
     switch (name)
     {
-      case AN_target: return this.connectedCallback();
-      case AN_pursue: return void (this.#Visor.Pursue = this.#Pursue);
-      case AN_indicator: return void (this.#Visor.updateIndicator(this.#Indicator));
-      case AN_margin: return void (this.#Visor.Margin = this.#Margin);
+      case AN_target: this.connectedCallback(); break
+      case AN_pursue: this.#Visor.Pursue = this.#Pursue; break
+      case AN_indicator: this.#Visor.setIdr(this.#Indicator); break
+      case AN_margin: this.#Visor.Margin = this.#Margin; break
     }
   }
 }

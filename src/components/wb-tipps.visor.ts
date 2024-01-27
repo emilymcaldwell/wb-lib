@@ -120,7 +120,10 @@ export class TippsVisor extends HTMLElement
     this.#DelayHandle = void 0;
     this.#SlottedClassList()?.add(this.#Indicator);
     this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
-    this.#setContent($Attr(element, tipps.Source));
+    // this.#setContent($Attr(element, tipps.Source));
+    const attrQuery = `[${tipps.Source}]`;
+    let contentSource = element.matches(attrQuery) ? element : element.closest(attrQuery);
+    this.#setContent($Attr(contentSource, tipps.Source));
     if (this.Pursue)
     {
       this.#onMouseMove(ev);

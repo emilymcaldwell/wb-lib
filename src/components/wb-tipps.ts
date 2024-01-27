@@ -24,7 +24,17 @@ export class Tipps extends HTMLElement
     const targetSelector = this.#Target;
     for (const mutation of mutations)
     {
-      if (mutation.target === this) return;
+      if (mutation.target === this)
+      {
+        // console.log({msg: "[DocumentObserver::onObservedMutation] Received mutation event for self", mutation: mutation});
+        switch (mutation.attributeName)
+        {
+          case AN_target: this.connectedCallback(); break
+          case AN_pursue: this.#Visor.Pursue = this.#Pursue; break
+          case AN_indicator: this.#Visor.setIdr(this.#Indicator); break
+          case AN_margin: this.#Visor.Margin = this.#Margin; break
+        }
+      }
       else if (mutation.type === "childList")
       {
         // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['childList'] mutation event"});
@@ -106,18 +116,6 @@ export class Tipps extends HTMLElement
       $ElemDocument(this).body.appendChild(this.#Visor).append(...this.children);
       this.#Visor.Pursue = this.#Pursue;
       this.#Visor.setIdr(this.#Indicator);
-    }
-  }
-
-  attributeChangedCallback(name: any, oldValue: any, newValue: any): void
-  {
-    // console.log({msg: "[Tipps::attributeChangedCallback] Received Attribute changed notice", name: name});
-    switch (name)
-    {
-      case AN_target: this.connectedCallback(); break
-      case AN_pursue: this.#Visor.Pursue = this.#Pursue; break
-      case AN_indicator: this.#Visor.setIdr(this.#Indicator); break
-      case AN_margin: this.#Visor.Margin = this.#Margin; break
     }
   }
 }

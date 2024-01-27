@@ -4,7 +4,15 @@ export * from "./rects";
 export const $Assign = Object.assign;
 export const $Frozen = Object.freeze;
 export const $Style = (elem: HTMLElement, obj: Partial<CSSStyleDeclaration>) => $Assign(elem.style, obj);
-export const $Attr = (elem: Element, attr: string) => elem.getAttribute(attr);
+
+type $Attr = {
+  (elem: null, attr: string) : null;
+  (elem: undefined, attr: string) : null;
+  (elem: Element, attr: string) : string;
+  (elem: Element | null, attr: string) : string | null;
+  (elem: Element | undefined, attr: string) : string | null;
+};
+export const $Attr = ((elem: Element, attr: string) => elem.getAttribute(attr)) as $Attr;
 
 export const $ElemEmplace = <K extends keyof HTMLElementTagNameMap>(document: Document, parent: Node, tagName: K, options?: ElementCreationOptions): HTMLElementTagNameMap[K] =>
   parent.appendChild(document.createElement(tagName, options));

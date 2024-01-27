@@ -7,7 +7,7 @@ function DOMRect_FromView(view, margin) {
 const $Assign = Object.assign;
 const $Frozen = Object.freeze;
 const $Style = (elem, obj) => $Assign(elem.style, obj);
-const $Attr = (elem, attr) => elem.getAttribute(attr);
+const $Attr = ((elem, attr) => elem.getAttribute(attr));
 const $ElemEmplace = (document, parent, tagName, options) => parent.appendChild(document.createElement(tagName, options));
 const $ElemQueryAll = ((elem, query) => elem.querySelectorAll(query));
 const $ElemBounds = ((elem) => elem?.getBoundingClientRect());
@@ -67,7 +67,9 @@ class TippsVisor extends HTMLElement {
         this.#DelayHandle = void 0;
         this.#SlottedClassList()?.add(this.#Indicator);
         this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
-        this.#setContent($Attr(element, tipps.Source));
+        const attrQuery = `[${tipps.Source}]`;
+        let contentSource = element.matches(attrQuery) ? element : element.closest(attrQuery);
+        this.#setContent($Attr(contentSource, tipps.Source));
         if (this.Pursue) {
             this.#onMouseMove(ev);
             $ElemDocument(element).addEventListener("mousemove", this.#onMouseMove);
@@ -123,8 +125,22 @@ class Tipps extends HTMLElement {
     #DocumentObserver = new MutationObserver((mutations) => {
         const targetSelector = this.#Target;
         for (const mutation of mutations) {
-            if (mutation.target === this)
-                return;
+            if (mutation.target === this) {
+                switch (mutation.attributeName) {
+                    case AN_target:
+                        this.connectedCallback();
+                        break;
+                    case AN_pursue:
+                        this.#Visor.Pursue = this.#Pursue;
+                        break;
+                    case AN_indicator:
+                        this.#Visor.setIdr(this.#Indicator);
+                        break;
+                    case AN_margin:
+                        this.#Visor.Margin = this.#Margin;
+                        break;
+                }
+            }
             else if (mutation.type === "childList") {
                 mutation.removedNodes.forEach(rn => this.#updateEvents(rn, targetSelector, 1));
                 mutation.addedNodes.forEach(an => this.#updateEvents(an, targetSelector));
@@ -174,22 +190,6 @@ class Tipps extends HTMLElement {
             $ElemDocument(this).body.appendChild(this.#Visor).append(...this.children);
             this.#Visor.Pursue = this.#Pursue;
             this.#Visor.setIdr(this.#Indicator);
-        }
-    }
-    attributeChangedCallback(name, oldValue, newValue) {
-        switch (name) {
-            case AN_target:
-                this.connectedCallback();
-                break;
-            case AN_pursue:
-                this.#Visor.Pursue = this.#Pursue;
-                break;
-            case AN_indicator:
-                this.#Visor.setIdr(this.#Indicator);
-                break;
-            case AN_margin:
-                this.#Visor.Margin = this.#Margin;
-                break;
         }
     }
 }

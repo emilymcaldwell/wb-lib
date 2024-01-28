@@ -11,6 +11,8 @@ export const $TimeoutSet = setTimeout;
 
 export const $Style = (elem: HTMLElement, obj: Partial<CSSStyleDeclaration>) => $Assign(elem.style, obj);
 
+export const $StrPixels = (px: number) => px + 'px';
+
 export const $Attr: $AttrTy = (elem, attr) => elem?.getAttribute(attr) ?? null;
 export const $AttrAncestor: $AttrTy = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 export const $AttrUpdate: $AttrUpdateTy = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));

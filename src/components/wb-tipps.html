@@ -25,7 +25,7 @@
 
 <body style="margin:0">
   <div class="test-segment">
-    <wb-tipps target="[title]" indicator="active" source="title" pursue="1.0" delay="30" loiter="300">
+    <wb-tipps target="[title]" indicator="active" source="title" delay="30" loiter="300" margin="4">
       <div class="test-tip1">
         <div>
           <slot name="prompt"></slot>
@@ -65,8 +65,8 @@
     let counterA = 0;
     function testElemLoop()
     {
-      if ((counterA % 5) ==  0)
-        document.querySelectorAll('wb-tipps').forEach(elem => (counterA % 2) ? elem.setAttribute('target', 'a[title]') : elem.setAttribute('target', '[title]'));
+      // if ((counterA % 5) ==  0)  // Produce an attribute change
+      //   document.querySelectorAll('wb-tipps').forEach(elem => (counterA % 2) ? elem.setAttribute('target', 'a[title]') : elem.setAttribute('target', '[title]'));
       let segment = document.querySelectorAll('.test-segment')[(counterA % 2)];
       let source = segment.querySelectorAll(':scope div.target')[(counterA % 2) ^ (Math.ceil(counterA / 2) % 2)];
       source.parentElement.appendChild(source.cloneNode(true));

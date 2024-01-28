@@ -1,5 +1,5 @@
-import { $Assign, $Frozen, $Style, $Attr, $AttrUpdate, $ElemEmplace, $ElemQuery, $ElemQueryAll, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
-import { AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter, TippsVisor, EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click, EV_TippsVisor } from "./wb-tipps.visor";
+import { $Frozen, $Attr, $AttrUpdate, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
+import { AN_target, TippsVisor, EV_TippsVisor } from "./wb-tipps.visor";
 export { TippsVisor };
 
 const VisorAttributes = TippsVisor.observedAttributes;

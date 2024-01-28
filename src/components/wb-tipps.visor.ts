@@ -1,7 +1,6 @@
 export const AN_target     : string = "target";
 export const AN_indicator  : string = "indicator";
 export const AN_source     : string = "source";
-export const AN_pursue     : string = "pursue";
 export const AN_margin     : string = "margin";
 export const AN_delay      : string = "delay";
 export const AN_loiter     : string = "loiter";
@@ -14,7 +13,7 @@ export const EV_MouseOver  : keyof DocumentEventMap = "mouseover";
 
 export const EV_TippsVisor : ReadonlyArray<keyof DocumentEventMap> = $Frozen([EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click]);
 
-import { DOMRect_FromView, $Frozen, $Assign, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemQuery, $ElemQueryAll, $ElemQueryMatches, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $TimeoutClear, $TimeoutSet } from "../utilities/index"
+import { DOMRect_FromView, $Frozen, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
 
 export class TippsVisor extends HTMLElement implements EventListenerObject
 {
@@ -38,29 +37,23 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     const ShadowRoot = this.attachShadow({mode: 'closed'});
     const ShadowDoc = $ElemDocument(ShadowRoot);
 
-    const we = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
-    // $Assign(we.style, { position: "absolute", pointerEvents: "none" });
-    $Style(we, { position: "absolute", pointerEvents: "none" });
+    const wrapper = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
+    // $Assign(wrapper.style, { position: "absolute", pointerEvents: "none" });
+    $Style(wrapper, { position: "absolute", pointerEvents: "none" });
     this.#setPosition(0,0);
-    this.#SlotElement = $ElemEmplace(ShadowDoc, we, "slot");
+    this.#SlotElement = $ElemEmplace(ShadowDoc, wrapper, "slot");
   }
 
   // get #Target() : string { return $Attr(this, AN_target) ?? '[title]'; }
   get #Indicator() : string { return $Attr(this, AN_indicator) ?? 'active'; }
   get #Source() : string { return $Attr(this, AN_source) ?? 'title'; }
-  get #Pursue() : boolean
-  {
-    if (!this.hasAttribute(AN_pursue)) return false;
-    const value = $Attr(this, AN_pursue);
-    if (!value) return true; // empty valued attribute
-    return !(/^\s*(false|0|off)\s*$/i.test(value));
-  }
   get #Margin()  : number { return (+($Attr(this, AN_margin) ?? 0) || 4); }
   get #Delay()  : number { return (+($Attr(this, AN_delay) ?? 0) || 700); }
   get #Loiter() : number { return (+($Attr(this, AN_loiter) ?? 0) || 300); }
 
   // Used by Tipps - Implies the attributes that must be synchronized to TippsVisor
-  static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
+  // static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
+  static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter]);
   attributeChangedCallback(name: string, oldValue: any, newValue: any)
   {
     if (name === AN_indicator)
@@ -94,7 +87,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
 
   #setPosition(pixelsX: number, pixelsY: number)
   {
-    $Style(this.#WrapperElement, { left: pixelsX + 'px', top: pixelsY + 'px'});
+    $Style(this.#WrapperElement, { left: $StrPixels(pixelsX), top: $StrPixels(pixelsY) });
   }
 
   #onMouseMove = (ev: MouseEvent) =>
@@ -139,32 +132,22 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     this.#SlottedClassList()?.add(this.#Indicator);
     this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
     this.#setContent($AttrAncestor(element, this.#Source));
-    if (this.#Pursue)
-    {
-      this.#onMouseMove(ev);
-      $ElemDocument(element).addEventListener(EV_MouseMove, this);
-    }
-    else
-    {
-      const elemRect = $ElemBounds(element);
-      this.#setPosition(elemRect.right - this.#Margin, elemRect.bottom - this.#Margin);
-    }
+    this.#onMouseMove(ev);
+    $ElemDocument(element).addEventListener(EV_MouseMove, this);
   }
 
   #onTippsUp(ev: MouseEvent)
   {
     const element = ev.target;
-    if (!(element instanceof HTMLElement)) return;
-
-    if (this.#LoiterHandle)
+    if (element instanceof HTMLElement)
     {
-      this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle)!;
-      this.#postDelay(ev, (this.#CurrentElement = element));
-    }
-    else
-    {
-      this.#CurrentElement = element;
-      this.#DelayHandle = $TimeoutSet(() => this.#postDelay(ev, element), this.#Delay);
+      this.#CurrentElement = element
+      if (this.#LoiterHandle)
+      {
+        this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle)!;
+        this.#postDelay(ev, element);
+      }
+      else this.#DelayHandle = $TimeoutSet(() => this.#postDelay(ev, element), this.#Delay);
     }
   }
 

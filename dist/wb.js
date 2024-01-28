@@ -11,6 +11,7 @@ const $MathMin = Math.min;
 const $TimeoutClear = clearTimeout;
 const $TimeoutSet = setTimeout;
 const $Style = (elem, obj) => $Assign(elem.style, obj);
+const $StrPixels = (px) => px + 'px';
 const $Attr = (elem, attr) => elem?.getAttribute(attr) ?? null;
 const $AttrAncestor = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 const $AttrUpdate = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
@@ -26,7 +27,6 @@ const $ArrayHas = ((arr, searchElement) => arr?.includes(searchElement) ?? false
 const AN_target = "target";
 const AN_indicator = "indicator";
 const AN_source = "source";
-const AN_pursue = "pursue";
 const AN_margin = "margin";
 const AN_delay = "delay";
 const AN_loiter = "loiter";
@@ -49,25 +49,17 @@ class TippsVisor extends HTMLElement {
         super();
         const ShadowRoot = this.attachShadow({ mode: 'closed' });
         const ShadowDoc = $ElemDocument(ShadowRoot);
-        const we = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
-        $Style(we, { position: "absolute", pointerEvents: "none" });
+        const wrapper = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
+        $Style(wrapper, { position: "absolute", pointerEvents: "none" });
         this.#setPosition(0, 0);
-        this.#SlotElement = $ElemEmplace(ShadowDoc, we, "slot");
+        this.#SlotElement = $ElemEmplace(ShadowDoc, wrapper, "slot");
     }
     get #Indicator() { return $Attr(this, AN_indicator) ?? 'active'; }
     get #Source() { return $Attr(this, AN_source) ?? 'title'; }
-    get #Pursue() {
-        if (!this.hasAttribute(AN_pursue))
-            return false;
-        const value = $Attr(this, AN_pursue);
-        if (!value)
-            return true;
-        return !(/^\s*(false|0|off)\s*$/i.test(value));
-    }
     get #Margin() { return (+($Attr(this, AN_margin) ?? 0) || 4); }
     get #Delay() { return (+($Attr(this, AN_delay) ?? 0) || 700); }
     get #Loiter() { return (+($Attr(this, AN_loiter) ?? 0) || 300); }
-    static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
+    static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter]);
     attributeChangedCallback(name, oldValue, newValue) {
         if (name === AN_indicator) {
             const elemCL = this.#SlottedClassList();
@@ -91,7 +83,7 @@ class TippsVisor extends HTMLElement {
         (this.querySelector('slot[name=prompt]') ?? this.#SlotElement).innerText = content ?? '';
     }
     #setPosition(pixelsX, pixelsY) {
-        $Style(this.#WrapperElement, { left: pixelsX + 'px', top: pixelsY + 'px' });
+        $Style(this.#WrapperElement, { left: $StrPixels(pixelsX), top: $StrPixels(pixelsY) });
     }
     #onMouseMove = (ev) => {
         const targetView = $ElemDocument(this.#CurrentElement)?.defaultView;
@@ -113,26 +105,19 @@ class TippsVisor extends HTMLElement {
         this.#SlottedClassList()?.add(this.#Indicator);
         this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
         this.#setContent($AttrAncestor(element, this.#Source));
-        if (this.#Pursue) {
-            this.#onMouseMove(ev);
-            $ElemDocument(element).addEventListener(EV_MouseMove, this);
-        }
-        else {
-            const elemRect = $ElemBounds(element);
-            this.#setPosition(elemRect.right - this.#Margin, elemRect.bottom - this.#Margin);
-        }
+        this.#onMouseMove(ev);
+        $ElemDocument(element).addEventListener(EV_MouseMove, this);
     }
     #onTippsUp(ev) {
         const element = ev.target;
-        if (!(element instanceof HTMLElement))
-            return;
-        if (this.#LoiterHandle) {
-            this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle);
-            this.#postDelay(ev, (this.#CurrentElement = element));
-        }
-        else {
+        if (element instanceof HTMLElement) {
             this.#CurrentElement = element;
-            this.#DelayHandle = $TimeoutSet(() => this.#postDelay(ev, element), this.#Delay);
+            if (this.#LoiterHandle) {
+                this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle);
+                this.#postDelay(ev, element);
+            }
+            else
+                this.#DelayHandle = $TimeoutSet(() => this.#postDelay(ev, element), this.#Delay);
         }
     }
     #postLoiter() {

@@ -1,97 +1,83 @@
-export const AN_target     : string = "target";
-export const AN_indicator  : string = "indicator";
-export const AN_source     : string = "source";
-export const AN_pursue     : string = "pursue";
-export const AN_margin     : string = "margin";
-export const AN_delay      : string = "delay";
-export const AN_loiter     : string = "loiter";
-
-import { $Assign, $Frozen, $Style, $Attr, $ElemEmplace, $ElemQuery, $ElemQueryAll, $ElemDocument } from "../utilities/index"
-import { TippsVisor } from "./wb-tipps.visor";
+import { $Assign, $Frozen, $Style, $Attr, $AttrUpdate, $ElemEmplace, $ElemQuery, $ElemQueryAll, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
+import { AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter, TippsVisor, EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click, EV_TippsVisor } from "./wb-tipps.visor";
 export { TippsVisor };
+
+const VisorAttributes = TippsVisor.observedAttributes;
 
 export class Tipps extends HTMLElement
 {
   static readonly QN: string = 'tipps';
   static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = $Frozen([...TippsVisor.QR, Tipps]);
 
-  static observedAttributes = $Frozen([AN_target, AN_indicator, AN_source, AN_pursue, AN_margin, AN_delay, AN_loiter]);
-
+  #State: WeakSet<HTMLElement> = new WeakSet();
   #Visor: TippsVisor = new TippsVisor();
 
   #DocumentObserver: MutationObserver = new MutationObserver((mutations: MutationRecord[]) =>
   {
-    const targetSelector = this.#Target;
     for (const mutation of mutations)
     {
-      if (mutation.target === this)
+      let attr = mutation.attributeName;
+      let target = mutation.target;
+      if (target === this && attr)
       {
         // console.log({msg: "[DocumentObserver::onObservedMutation] Received mutation event for self", mutation: mutation});
-        switch (mutation.attributeName)
-        {
-          case AN_target: this.connectedCallback(); break
-          case AN_pursue: this.#Visor.Pursue = this.#Pursue; break
-          case AN_indicator: this.#Visor.setIdr(this.#Indicator); break
-          case AN_margin: this.#Visor.Margin = this.#Margin; break
-        }
+        if (attr === AN_target)
+          this.connectedCallback();
+        else if ($ArrayHas(VisorAttributes, attr))
+          $AttrUpdate(this.#Visor, attr, $Attr(this, attr));
       }
       else if (mutation.type === "childList")
       {
         // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['childList'] mutation event"});
-        mutation.removedNodes.forEach(rn => this.#updateEvents(rn, targetSelector, 1))
-        mutation.addedNodes.forEach(an => this.#updateEvents(an, targetSelector));
+        mutation.removedNodes.forEach(rn => this.#excise(rn))
+        mutation.addedNodes.forEach(an => this.#affix(an));
       }
       else if (mutation.type === "attributes")
       {
         // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['attributes'] mutation event"});
-        // console.log({msg: "[DocumentObserver::onObservedMutation]   Attribute Changed", attr: mutation.attributeName});
-        this.#updateEvents(mutation.target, targetSelector, 1);
-        this.#updateEvents(mutation.target, targetSelector);
+        // console.log({msg: "[DocumentObserver::onObservedMutation]   Attribute Changed", attr: attr});
+        this.#excise(target);
+        this.#affix(target);
       }
     }
   });
 
-  #onTippsUp = (ev: MouseEvent) => this.#Visor.onTippsUp(this, ev);
-  #onTippsDown = (ev: MouseEvent) => this.#Visor.onTippsDown(this, ev);
-
-  #updateEvents(node: Node, selector: string, remove: number = 0)
+  #excise(elem: Node)
   {
-    // console.log({msg: "[Tipps::updateEvents] Received request to update events", elem: node, isTargetted: ShouldUpdate});
-    if (node instanceof HTMLElement && node.matches(selector))
+    if (elem instanceof HTMLElement)
     {
-      const targetFn = (remove ? node.removeEventListener : node.addEventListener).bind(node);
-      // console.log({msg: `[Tipps::updateEvents]   ${remove ? "Removing" : "Adding"} events`, elem: node});
-      // targetFn.bind(node)("mouseover", this.#onTippsUp);
-      // targetFn.bind(node)("mouseout", this.#onTippsDown);
-      // targetFn.bind(node)("mousedown", this.#onTippsDown);
-      // targetFn.bind(node)("click", this.#onTippsDown);
-      targetFn("mouseover", this.#onTippsUp);
-      // @ts-ignore
-      ["mouseout", "mousedown", "click"].forEach(e => targetFn(e, this.#onTippsDown));
+      // let list = [elem, ...elem.querySelectorAll('*')];
+      // console.log({msg: "[Tipps::removeEvents] Iterating hierarchy", list: list});
+      // for (const node of list)
+      for (const node of $ElemSelfAndAll(elem))
+      {
+        if (node instanceof HTMLElement && this.#State.delete(node))
+        {
+          EV_TippsVisor.forEach(e => node.removeEventListener(e, this.#Visor));
+        }
+      }
     }
   }
 
-  get #Target() : string { return $Attr(this, AN_target) ?? '[title]'; }
-  get #Indicator() : string { return $Attr(this, AN_indicator) ?? 'active'; }
-  get Source() : string { return $Attr(this, AN_source) ?? 'title'; }
-  get #Pursue() : boolean
+  #affix(elem: Node)
   {
-    if (!this.hasAttribute(AN_pursue)) return false;
-    const value = $Attr(this, AN_pursue);
-    if (!value) return true; // empty valued attribute
-    return !(/^\s*(false|0|off)\s*$/i.test(value));
+    const selector = $Attr(this, AN_target);
+    if (selector && elem instanceof HTMLElement)
+    {
+      // let list = [...(elem.matches(selector) ? [elem] : []) , ...elem.querySelectorAll(selector)];
+      // console.log({msg: "[Tipps::addEvents] Iterating hierarchy", list: list});
+      // for (const node of list)
+      for (const node of $ElemQuerySelfAndAll(elem, selector))
+      {
+        if (node instanceof HTMLElement && !this.#State.has(node))
+        {
+          this.#State.add(node);
+          EV_TippsVisor.forEach(e => node.addEventListener(e, this.#Visor));
+        }
+      }
+    }
   }
-  get #Margin()  : number { return Number($Attr(this, AN_margin) ?? 4); }
-  get Delay()  : number { return Number($Attr(this, AN_delay) ?? 700); }
-  get Loiter() : number { return Number($Attr(this, AN_loiter) ?? 300); }
 
-  // set Target(v) { v ? this.setAttribute(AN_target, v) : this.removeAttribute(AN_target); }
-  // set Indicator(v) { v ? this.setAttribute(AN_indicator, v) : this.removeAttribute(AN_indicator); }
-  // set Source(v) { v ? this.setAttribute(AN_source, v) : this.removeAttribute(AN_source); }
-  // set Pursue(v) { v ? this.setAttribute(AN_pursue, '') : this.removeAttribute(AN_pursue); }
-  // set Margin(v)  { v ? this.setAttribute(AN_margin, String(v)) : this.removeAttribute(AN_margin); }
-  // set Delay(v)  { v ? this.setAttribute(AN_delay, String(v)) : this.removeAttribute(AN_delay); }
-  // set Loiter(v) { v ? this.setAttribute(AN_loiter, String(v)) : this.removeAttribute(AN_loiter); }
 
   connectedCallback()
   {
@@ -99,23 +85,20 @@ export class Tipps extends HTMLElement
     const baseNode = this.parentNode;
     if (baseNode)
     {
-      const targetSelector = this.#Target;
-      for (const existingNode of $ElemQueryAll(baseNode, targetSelector))
-      {
-        this.#updateEvents(existingNode, targetSelector, 1);
-        this.#updateEvents(existingNode, targetSelector);
-      }
+      VisorAttributes.forEach(attr => $AttrUpdate(this.#Visor, attr, $Attr(this, attr)));
+
+      this.#Visor.onTippsDown(null);
+      this.#excise(baseNode);
+      this.#affix(baseNode);
 
       this.#DocumentObserver.disconnect();
       this.#DocumentObserver.observe(baseNode, {
         childList: true, subtree: true,
-        // @ts-ignore
-        attributeFilter: Tipps.observedAttributes
+        // @ts-expect-error -- ReadOnlyArray vs. Array
+        attributeFilter: VisorAttributes
       });
 
       $ElemDocument(this).body.appendChild(this.#Visor).append(...this.children);
-      this.#Visor.Pursue = this.#Pursue;
-      this.#Visor.setIdr(this.#Indicator);
     }
   }
 }

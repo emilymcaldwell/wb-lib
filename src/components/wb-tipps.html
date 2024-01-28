@@ -65,6 +65,8 @@
     let counterA = 0;
     function testElemLoop()
     {
+      if ((counterA % 5) ==  0)
+        document.querySelectorAll('wb-tipps').forEach(elem => (counterA % 2) ? elem.setAttribute('target', 'a[title]') : elem.setAttribute('target', '[title]'));
       let segment = document.querySelectorAll('.test-segment')[(counterA % 2)];
       let source = segment.querySelectorAll(':scope div.target')[(counterA % 2) ^ (Math.ceil(counterA / 2) % 2)];
       source.parentElement.appendChild(source.cloneNode(true));

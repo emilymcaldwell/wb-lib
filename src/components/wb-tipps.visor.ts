@@ -1,15 +1,13 @@
-import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
+import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemQuery, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
 import { AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter } from "./common"
 import { EV_Click, EV_MouseDown, EV_MouseMove, EV_MouseOut, EV_MouseOver  } from "./common"
 
 export const EV_TippsVisor : ReadonlyArray<keyof DocumentEventMap> = $Frozen([EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click]);
 
-
 export class TippsVisor extends HTMLElement implements EventListenerObject
 {
   static readonly QN: string = 'tipps-visor';
   static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = $Frozen([TippsVisor]);
-
 
   // private _internals: ElementInternals;
   #WrapperElement: HTMLElement;
@@ -28,9 +26,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     const ShadowDoc = $ElemDocument(ShadowRoot);
 
     const wrapper = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
-    // $Assign(wrapper.style, { position: "absolute", pointerEvents: "none" });
-    $Style(wrapper, { position: "absolute", pointerEvents: "none" });
-    this.#setPosition(0,0);
+    $Style(wrapper, { position: "absolute", pointerEvents: "none", zIndex: "-1" });
     this.#SlotElement = $ElemEmplace(ShadowDoc, wrapper, "slot");
   }
 
@@ -72,12 +68,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
 
   #setContent(content: string | null = null)
   {
-    (this.querySelector<HTMLSlotElement>('slot[name=prompt]') ?? this.#SlotElement).innerText = content ?? '';
-  }
-
-  #setPosition(pixelsX: number, pixelsY: number)
-  {
-    $Style(this.#WrapperElement, { left: $StrPixels(pixelsX), top: $StrPixels(pixelsY) });
+    ($ElemQuery<HTMLSlotElement>(this, 'slot[name=prompt]') ?? this.#SlotElement).innerText = content ?? '';
   }
 
   #onMouseMove = (ev: MouseEvent) =>
@@ -103,7 +94,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
       $MathMax(0, (viewRect.top - position.y)) + $MathMin(0, (viewRect.bottom - position.y))
     );
 
-    // Avoid underrun, deflect to right-side of cursor
+    // Avoid vertical overrun, deflect to right-side of cursor
     // let overrunFactor = DOMPoint.fromPoint({x: overrun.x / wrapperRect.width, y: overrun.y / wrapperRect.height});
     // position.x += (overrun.x ? overrun.x : (mouseRect.width * overrunFactor.y));
     position.x += (overrun.x ? overrun.x : (mouseRect.width * (overrun.y / wrapperRect.height)));
@@ -113,7 +104,9 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     position.x = $MathMin(position.x, viewRect.right - wrapperRect.width);
     position.y = $MathMin(position.y, viewRect.bottom - wrapperRect.height);
 
-    this.#setPosition(position.x, position.y);
+    // Rounding errors in the browser may allow the tooltip to follow the cursor ~1 pixel outside the target element
+    // This is not a code issue; The browser's interaction boundary for the element does not align with the visual/render boundary
+    $Style(this.#WrapperElement, { left: $StrPixels(position.x), top: $StrPixels(position.y) });
   }
 
   #postDelay(ev: MouseEvent, element: HTMLElement)
@@ -156,9 +149,6 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle)!;
 
     $ListenerRemove($ElemDocument(this.#CurrentElement), EV_MouseMove, this);
-    // if (ev.type === "click" || ev.type === "mousedown") this.#postLoiter(tipps);
-    // else this.#LoiterHandle = setTimeout(() => this.#postLoiter(tipps), tipps.Loiter);
-    // if (ev.type === "click" || ev.type === "mousedown") this.#postLoiter();
     if (!ev || $ArrayHas([EV_Click, EV_MouseDown], ev.type)) this.#postLoiter();
     else this.#LoiterHandle = $TimeoutSet(() => this.#postLoiter(), this.#Loiter);
     this.#CurrentElement = null;

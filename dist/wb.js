@@ -4,13 +4,26 @@ function DOMRect_FromView(view, margin) {
     return new DOMRect(view.scrollX + margin, view.scrollY + margin, view.innerWidth - margin2, view.innerHeight - margin2);
 }
 
+const $MutationObserver_Tri = (onAttr, onChildAdded, onChildRemoved) => new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+        const attr = mutation.attributeName;
+        if (mutation.type === "childList") {
+            mutation.removedNodes.forEach(onChildAdded);
+            mutation.addedNodes.forEach(onChildRemoved);
+        }
+        else if (attr) {
+            onAttr(mutation.target, attr);
+        }
+    }
+});
+
 const $Assign = Object.assign;
 const $Frozen = Object.freeze;
 const $MathMax = Math.max;
 const $MathMin = Math.min;
 const $TimeoutClear = clearTimeout;
 const $TimeoutSet = setTimeout;
-const $Style = (elem, obj) => $Assign(elem.style, obj);
+const $Style = (elem, obj) => elem && obj ? $Assign(elem.style, obj) : elem?.style ?? null;
 const $StrPixels = (px) => px + 'px';
 const $Class = ((elem) => elem?.classList ?? null);
 const $ClassToggle = ((elem, className, force) => $Class(elem)?.toggle(className, force) ?? null);
@@ -19,6 +32,10 @@ const $Attr = (elem, attr) => elem?.getAttribute(attr) ?? null;
 const $AttrAncestor = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 const $AttrUpdate = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
 const $ElemEmplace = (document, parent, tagName, options) => parent.appendChild(document.createElement(tagName, options));
+const $ElemParent = (elem) => elem.parentElement ?? null;
+const $ElemNextSibling = (elem) => elem.nextElementSibling ?? null;
+const $ElemPrevSibling = (elem) => elem.previousElementSibling ?? null;
+const $ElemQuery = ((elem, query) => elem.querySelector(query));
 const $ElemQueryAll = ((elem, query) => elem.querySelectorAll(query));
 const $ElemQueryMatches = ((elem, query) => elem.matches(query));
 const $ElemQuerySelfAndAll = ((elem, query) => [...($ElemQueryMatches(elem, query) ? [elem] : []), ...$ElemQueryAll(elem, query)]);
@@ -32,6 +49,7 @@ const $ListenerAddMany = ((elem, types, listener) => types.forEach(x => $Listene
 const $ListenerRemoveMany = ((elem, types, listener) => types.forEach(x => $ListenerRemove(elem, x, listener)));
 const $IOfHTMLElement = (elem) => elem instanceof HTMLElement;
 const $IOfHTMLAudioElement = (elem) => elem instanceof HTMLAudioElement;
+const $AsHTMLAudioElement = (elem) => $IOfHTMLAudioElement(elem) ? elem : null;
 const $IOfMouseEvent = (ev) => ev instanceof MouseEvent;
 
 const AN_target = "target";
@@ -40,7 +58,7 @@ const AN_source = "source";
 const AN_margin = "margin";
 const AN_delay = "delay";
 const AN_loiter = "loiter";
-const AN_simultaneous = "simultaneous-playback";
+const AN_simultaneous = "simultaneous";
 const EV_Click = "click";
 const EV_MouseDown = "mousedown";
 const EV_MouseMove = "mousemove";
@@ -65,8 +83,7 @@ class TippsVisor extends HTMLElement {
         const ShadowRoot = this.attachShadow({ mode: 'closed' });
         const ShadowDoc = $ElemDocument(ShadowRoot);
         const wrapper = this.#WrapperElement = $ElemEmplace(ShadowDoc, ShadowRoot, "div");
-        $Style(wrapper, { position: "absolute", pointerEvents: "none" });
-        this.#setPosition(0, 0);
+        $Style(wrapper, { position: "absolute", pointerEvents: "none", zIndex: "-1" });
         this.#SlotElement = $ElemEmplace(ShadowDoc, wrapper, "slot");
     }
     get #Indicator() { return $Attr(this, AN_indicator) ?? 'active'; }
@@ -95,10 +112,7 @@ class TippsVisor extends HTMLElement {
         }
     }
     #setContent(content = null) {
-        (this.querySelector('slot[name=prompt]') ?? this.#SlotElement).innerText = content ?? '';
-    }
-    #setPosition(pixelsX, pixelsY) {
-        $Style(this.#WrapperElement, { left: $StrPixels(pixelsX), top: $StrPixels(pixelsY) });
+        ($ElemQuery(this, 'slot[name=prompt]') ?? this.#SlotElement).innerText = content ?? '';
     }
     #onMouseMove = (ev) => {
         const targetView = $ElemDocument(this.#CurrentElement)?.defaultView;
@@ -113,7 +127,7 @@ class TippsVisor extends HTMLElement {
         position.y += overrun.y;
         position.x = $MathMin(position.x, viewRect.right - wrapperRect.width);
         position.y = $MathMin(position.y, viewRect.bottom - wrapperRect.height);
-        this.#setPosition(position.x, position.y);
+        $Style(this.#WrapperElement, { left: $StrPixels(position.x), top: $StrPixels(position.y) });
     };
     #postDelay(ev, element) {
         this.#DelayHandle = void 0;
@@ -159,26 +173,16 @@ class Tipps extends HTMLElement {
     static QR = $Frozen([...TippsVisor.QR, Tipps]);
     #State = new WeakSet();
     #Visor = new TippsVisor();
-    #DocumentObserver = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            let attr = mutation.attributeName;
-            let target = mutation.target;
-            if (target === this && attr) {
-                if (attr === AN_target)
-                    this.connectedCallback();
-                else if ($ArrayHas(VisorAttributes, attr))
-                    $AttrUpdate(this.#Visor, attr, $Attr(this, attr));
-            }
-            else if (mutation.type === "childList") {
-                mutation.removedNodes.forEach(rn => this.#excise(rn));
-                mutation.addedNodes.forEach(an => this.#affix(an));
-            }
-            else if (mutation.type === "attributes") {
-                this.#excise(target);
-                this.#affix(target);
-            }
+    #DocumentObserver = $MutationObserver_Tri((target, attr) => {
+        if (target === this) {
+            if (attr === AN_target)
+                this.connectedCallback();
+            else if ($ArrayHas(VisorAttributes, attr))
+                $AttrUpdate(this.#Visor, attr, $Attr(this, attr));
         }
-    });
+        else
+            (this.#excise(target), this.#affix(target));
+    }, (addedNode) => this.#affix(addedNode), (removedNode) => this.#affix(removedNode));
     #excise(elem) {
         if ($IOfHTMLElement(elem)) {
             for (const node of $ElemSelfAndAll(elem)) {
@@ -200,14 +204,14 @@ class Tipps extends HTMLElement {
         }
     }
     connectedCallback() {
-        const baseNode = this.parentNode;
-        if (baseNode) {
+        const baseElement = $ElemParent(this);
+        if (baseElement) {
             VisorAttributes.forEach(attr => $AttrUpdate(this.#Visor, attr, $Attr(this, attr)));
             this.#Visor.onTippsDown(null);
-            this.#excise(baseNode);
-            this.#affix(baseNode);
+            this.#excise(baseElement);
+            this.#affix(baseElement);
             this.#DocumentObserver.disconnect();
-            this.#DocumentObserver.observe(baseNode, {
+            this.#DocumentObserver.observe(baseElement, {
                 childList: true, subtree: true,
                 attributeFilter: VisorAttributes
             });
@@ -221,34 +225,26 @@ const EV_TumblrAudioAttributes = $Frozen([AN_target, AN_indicator, AN_simultaneo
 class TumblrAudio extends HTMLElement {
     static QN = 'tmblr-audio';
     static QR = $Frozen([TumblrAudio]);
-    #State = new WeakSet();
+    #State = new WeakMap();
     get #Indicator() { return $Attr(this, AN_indicator) ?? 'playing'; }
     get #Simultaneous() { return !!($Attr(this, AN_simultaneous)); }
-    #DocumentObserver = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            let attr = mutation.attributeName;
-            let target = mutation.target;
-            if (target === this && attr) {
-                if ($ArrayHas(EV_TumblrAudioAttributes, attr))
-                    this.connectedCallback();
-            }
-            else if (mutation.type === "childList") {
-                mutation.removedNodes.forEach(rn => this.#excise(rn));
-                mutation.addedNodes.forEach(an => this.#affix(an));
-            }
-            else if (mutation.type === "attributes") {
-                this.#excise(target);
-                this.#affix(target);
-            }
-        }
-    });
+    #DocumentObserver = $MutationObserver_Tri((target, attr) => {
+        if (target === this && $ArrayHas(EV_TumblrAudioAttributes, attr))
+            this.connectedCallback();
+        else
+            (this.#excise(target), this.#affix(target));
+    }, (addedNode) => this.#affix(addedNode), (removedNode) => this.#affix(removedNode));
     #excise(elem) {
         if ($IOfHTMLElement(elem)) {
             for (const node of $ElemSelfAndAll(elem)) {
-                if ($IOfHTMLElement(node) && this.#State.delete(node)) {
+                const origBg = this.#State.get(node);
+                if (this.#State.delete(node)) {
                     $ListenerRemove(node, EV_MouseDown, this);
                     $ListenerRemoveMany(node, EV_TumblrAudioEvents, this);
                     $ClassRemove(node, this.#Indicator);
+                    if (!$IOfHTMLAudioElement(node)) {
+                        $Style($ElemParent(node), { backgroundImage: origBg });
+                    }
                 }
             }
         }
@@ -258,53 +254,50 @@ class TumblrAudio extends HTMLElement {
         if (selector && $IOfHTMLElement(elem)) {
             for (const node of $ElemQuerySelfAndAll(elem, selector)) {
                 if ($IOfHTMLElement(node) && !this.#State.has(node)) {
-                    const sibling = node.nextElementSibling;
-                    if ($IOfHTMLAudioElement(sibling)) {
-                        $ClassToggle(node, this.#Indicator, !sibling.paused);
+                    const parent = $ElemParent(node);
+                    if (parent) {
+                        $ListenerAdd(node, EV_MouseDown, this);
+                        $ClassToggle(node, this.#Indicator, !($AsHTMLAudioElement($ElemNextSibling(node))?.paused ?? true));
+                        this.#State.set(node, $Style(parent)?.backgroundImage ?? "");
+                        $Style(parent, { backgroundImage: `url(${$ElemQuery(node, "img")?.src})` });
                     }
-                    $ListenerAdd(node, EV_MouseDown, this);
-                    this.#State.add(node);
                 }
             }
         }
     }
     handleEvent(ev) {
         const element = ev.target;
-        if ($IOfMouseEvent(ev)) {
-            if ($IOfHTMLElement(element)) {
-                const sibling = element.nextElementSibling;
-                if ($IOfHTMLAudioElement(sibling)) {
-                    if (!this.#State.has(sibling)) {
-                        $ListenerAddMany(sibling, EV_TumblrAudioEvents, this);
-                        this.#State.add(sibling);
-                    }
-                    if (sibling.paused) {
-                        if (!this.#Simultaneous) {
-                            const baseNode = this.parentElement;
-                            if (baseNode) {
-                                $ElemQuerySelfAndAll(baseNode, "audio").forEach(el => el.pause());
-                            }
-                        }
-                        sibling.play();
-                    }
-                    else
-                        sibling.pause();
+        if ($IOfMouseEvent(ev) && $IOfHTMLElement(element)) {
+            const sibling = $ElemNextSibling(element);
+            if ($IOfHTMLAudioElement(sibling)) {
+                if (!this.#State.has(sibling)) {
+                    $ListenerAddMany(sibling, EV_TumblrAudioEvents, this);
+                    this.#State.set(sibling, "");
                 }
+                if (sibling.paused) {
+                    if (!this.#Simultaneous) {
+                        const baseElement = $ElemParent(this);
+                        if (baseElement) {
+                            $ElemQuerySelfAndAll(baseElement, "audio").forEach(el => el.pause());
+                        }
+                    }
+                    sibling.play();
+                }
+                else
+                    sibling.pause();
             }
         }
-        else if ($ArrayHas(EV_TumblrAudioEvents, ev.type)) {
-            if ($IOfHTMLAudioElement(element)) {
-                $ClassToggle(element.previousElementSibling, this.#Indicator, !element.paused);
-            }
+        else if ($ArrayHas(EV_TumblrAudioEvents, ev.type) && $IOfHTMLAudioElement(element)) {
+            $ClassToggle($ElemPrevSibling(element), this.#Indicator, !element.paused);
         }
     }
     connectedCallback() {
-        const baseNode = this.parentNode;
-        if (baseNode) {
-            this.#excise(baseNode);
-            this.#affix(baseNode);
+        const baseElement = $ElemParent(this);
+        if (baseElement) {
+            this.#excise(baseElement);
+            this.#affix(baseElement);
             this.#DocumentObserver.disconnect();
-            this.#DocumentObserver.observe(baseNode, {
+            this.#DocumentObserver.observe(baseElement, {
                 childList: true, subtree: true,
                 attributeFilter: EV_TumblrAudioAttributes
             });

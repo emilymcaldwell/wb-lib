@@ -1,4 +1,4 @@
-import { $ListenerAddMany, $ListenerRemoveMany, $IOfHTMLElement, $Frozen, $Attr, $AttrUpdate, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
+import { $ListenerAddMany, $ListenerRemoveMany, $IOfHTMLElement, $MutationObserver_Tri, $Frozen, $Attr, $AttrUpdate, $ElemParent, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
 import { AN_target } from "./common"
 import { TippsVisor, EV_TippsVisor } from "./wb-tipps.visor";
 export { TippsVisor };
@@ -13,35 +13,21 @@ export class Tipps extends HTMLElement
   #State: WeakSet<HTMLElement> = new WeakSet();
   #Visor: TippsVisor = new TippsVisor();
 
-  #DocumentObserver: MutationObserver = new MutationObserver((mutations: MutationRecord[]) =>
-  {
-    for (const mutation of mutations)
+  #DocumentObserver: MutationObserver = $MutationObserver_Tri(
+    (target, attr) =>
     {
-      let attr = mutation.attributeName;
-      let target = mutation.target;
-      if (target === this && attr)
+      if (target === this)
       {
-        // console.log({msg: "[DocumentObserver::onObservedMutation] Received mutation event for self", mutation: mutation});
         if (attr === AN_target)
           this.connectedCallback();
         else if ($ArrayHas(VisorAttributes, attr))
-          $AttrUpdate(this.#Visor, attr, $Attr(this, attr));
+          $AttrUpdate(this.#Visor, attr, $Attr(this, attr))
       }
-      else if (mutation.type === "childList")
-      {
-        // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['childList'] mutation event"});
-        mutation.removedNodes.forEach(rn => this.#excise(rn))
-        mutation.addedNodes.forEach(an => this.#affix(an));
-      }
-      else if (mutation.type === "attributes")
-      {
-        // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['attributes'] mutation event"});
-        // console.log({msg: "[DocumentObserver::onObservedMutation]   Attribute Changed", attr: attr});
-        this.#excise(target);
-        this.#affix(target);
-      }
-    }
-  });
+      else (this.#excise(target), this.#affix(target));
+    },
+    (addedNode) => this.#affix(addedNode),
+    (removedNode) => this.#affix(removedNode)
+    );
 
   #excise(elem: Node)
   {
@@ -79,17 +65,17 @@ export class Tipps extends HTMLElement
   connectedCallback()
   {
     // console.log({msg: "[Tipps::connectedCallback] Received connectedCallback request"});
-    const baseNode = this.parentNode;
-    if (baseNode)
+    const baseElement = $ElemParent(this);
+    if (baseElement)
     {
       VisorAttributes.forEach(attr => $AttrUpdate(this.#Visor, attr, $Attr(this, attr)));
 
       this.#Visor.onTippsDown(null);
-      this.#excise(baseNode);
-      this.#affix(baseNode);
+      this.#excise(baseElement);
+      this.#affix(baseElement);
 
       this.#DocumentObserver.disconnect();
-      this.#DocumentObserver.observe(baseNode, {
+      this.#DocumentObserver.observe(baseElement, {
         childList: true, subtree: true,
         // @ts-expect-error -- ReadOnlyArray vs. Array
         attributeFilter: VisorAttributes

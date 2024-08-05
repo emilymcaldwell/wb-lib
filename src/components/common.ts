@@ -5,7 +5,7 @@ export const AN_margin              : string = "margin";
 export const AN_delay               : string = "delay";
 export const AN_loiter              : string = "loiter";
 /** wide names for wide choices */
-export const AN_simultaneous        : string = "simultaneous-playback";
+export const AN_simultaneous        : string = "simultaneous";
 
 export const EV_Click               : keyof DocumentEventMap = "click";
 export const EV_MouseDown           : keyof DocumentEventMap = "mousedown";

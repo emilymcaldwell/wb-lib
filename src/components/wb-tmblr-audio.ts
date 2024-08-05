@@ -1,4 +1,6 @@
-import { $ListenerAdd, $ListenerAddMany, $ListenerRemove, $ListenerRemoveMany, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, $Frozen, $Attr, $ClassRemove, $ClassToggle, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ArrayHas } from "../utilities/index"
+import { $ListenerAdd, $ListenerAddMany, $ListenerRemove, $ListenerRemoveMany } from "../utilities/index"
+import { $IOfHTMLElement, $AsHTMLAudioElement, $IOfHTMLAudioElement, $IOfMouseEvent } from "../utilities/index"
+import { $Frozen, $Attr, $ClassRemove, $ClassToggle, $ElemQuerySelfAndAll, $ElemQuery, $ElemParent, $ElemNextSibling, $ElemPrevSibling, $ElemSelfAndAll, $ArrayHas, $Style, $MutationObserver_Tri } from "../utilities/index"
 import { AN_target, AN_indicator, AN_simultaneous, EV_MouseDown, EV_MediaPause, EV_MediaPlay, EV_MediaEnded } from "./common"
 
 export const EV_TumblrAudioEvents : ReadonlyArray<keyof DocumentEventMap> = $Frozen([EV_MediaPlay, EV_MediaPause, EV_MediaEnded]);
@@ -9,38 +11,21 @@ export class TumblrAudio extends HTMLElement implements EventListenerObject
   static readonly QN: string = 'tmblr-audio';
   static readonly QR: ReadonlyArray<CustomElementConstructor & { QN:string }> = $Frozen([TumblrAudio]);
 
-  #State: WeakSet<HTMLElement> = new WeakSet();
+  #State: WeakMap<HTMLElement, string> = new WeakMap();
 
   get #Indicator() : string { return $Attr(this, AN_indicator) ?? 'playing'; }
   get #Simultaneous() : boolean { return !!($Attr(this, AN_simultaneous)); }
 
-  #DocumentObserver: MutationObserver = new MutationObserver((mutations: MutationRecord[]) =>
-  {
-    for (const mutation of mutations)
+  #DocumentObserver: MutationObserver = $MutationObserver_Tri(
+    (target, attr) =>
     {
-      let attr = mutation.attributeName;
-      let target = mutation.target;
-      if (target === this && attr)
-      {
-        // console.log({msg: "[DocumentObserver::onObservedMutation] Received mutation event for self", mutation: mutation});
-        if ($ArrayHas(EV_TumblrAudioAttributes, attr))
-          this.connectedCallback();
-      }
-      else if (mutation.type === "childList")
-      {
-        // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['childList'] mutation event"});
-        mutation.removedNodes.forEach(rn => this.#excise(rn))
-        mutation.addedNodes.forEach(an => this.#affix(an));
-      }
-      else if (mutation.type === "attributes")
-      {
-        // console.log({msg: "[DocumentObserver::onObservedMutation] Received ['attributes'] mutation event"});
-        // console.log({msg: "[DocumentObserver::onObservedMutation]   Attribute Changed", attr: attr});
-        this.#excise(target);
-        this.#affix(target);
-      }
-    }
-  });
+      if (target === this && $ArrayHas(EV_TumblrAudioAttributes, attr))
+        this.connectedCallback();
+      else (this.#excise(target), this.#affix(target));
+    },
+    (addedNode) => this.#affix(addedNode),
+    (removedNode) => this.#affix(removedNode)
+    );
 
   #excise(elem: Node)
   {
@@ -49,11 +34,16 @@ export class TumblrAudio extends HTMLElement implements EventListenerObject
       // console.log({msg: "[TumblrAudio::removeEvents] Iterating hierarchy", list: $ElemSelfAndAll(elem)});
       for (const node of $ElemSelfAndAll(elem))
       {
-        if ($IOfHTMLElement(node) && this.#State.delete(node))
+        const origBg = this.#State.get(node);
+        if (this.#State.delete(node))
         {
           $ListenerRemove(node, EV_MouseDown, this);
           $ListenerRemoveMany(node, EV_TumblrAudioEvents, this);
           $ClassRemove(node, this.#Indicator);
+          if (!$IOfHTMLAudioElement(node))
+          {
+            $Style($ElemParent(node), { backgroundImage: origBg });
+          }
         }
       }
     }
@@ -69,71 +59,67 @@ export class TumblrAudio extends HTMLElement implements EventListenerObject
       {
         if ($IOfHTMLElement(node) && !this.#State.has(node))
         {
-          const sibling = node.nextElementSibling;
-          if ($IOfHTMLAudioElement(sibling))
+          const parent = $ElemParent(node);
+          if (parent)
           {
-            $ClassToggle(node, this.#Indicator, !sibling.paused);
+            $ListenerAdd(node, EV_MouseDown, this);
+            $ClassToggle(node, this.#Indicator, !($AsHTMLAudioElement($ElemNextSibling(node))?.paused ?? true));
+            this.#State.set(node, $Style(parent)?.backgroundImage ?? "");
+            $Style(parent, { backgroundImage: `url(${$ElemQuery(node, "img")?.src})` });
           }
-          $ListenerAdd(node, EV_MouseDown, this);
-          this.#State.add(node);
         }
       }
     }
   }
 
+  // Receives both the clickable play/pause events, as well as the Audio element'ss playback events
   handleEvent(ev: Event): void
   {
     // console.log({msg: "[TumblrAudio::handleEvent] Received event", ev: ev});
     const element = ev.target;
-    if ($IOfMouseEvent(ev))
+    if ($IOfMouseEvent(ev) && $IOfHTMLElement(element))
     { // Play/Pause clicked... 'element' should be an element that matched AN_target parameter
-      if ($IOfHTMLElement(element))
+      const sibling = $ElemNextSibling(element);
+      if ($IOfHTMLAudioElement(sibling))
       {
-        const sibling = element.nextElementSibling;
-        if ($IOfHTMLAudioElement(sibling))
+        // console.log({msg: "[TumblrAudio::handleEvent] Trigger Play/Pause"});
+        if (!this.#State.has(sibling))
         {
-          // console.log({msg: "[TumblrAudio::handleEvent] Trigger Play/Pause"});
-          if (!this.#State.has(sibling))
-          {
-            $ListenerAddMany(sibling, EV_TumblrAudioEvents, this);
-            this.#State.add(sibling);
-          }
-          if (sibling.paused)
-          {
-            if (!this.#Simultaneous)
-            {
-              const baseNode = this.parentElement;
-              if (baseNode)
-              {
-                $ElemQuerySelfAndAll(baseNode, "audio").forEach(el => el.pause())
-              }
-            }
-            sibling.play();
-          }
-          else sibling.pause();
+          $ListenerAddMany(sibling, EV_TumblrAudioEvents, this);
+          this.#State.set(sibling, "");
         }
+        if (sibling.paused)
+        {
+          if (!this.#Simultaneous)
+          {
+            const baseElement = $ElemParent(this);
+            if (baseElement)
+            {
+              $ElemQuerySelfAndAll(baseElement, "audio").forEach(el => el.pause())
+            }
+          }
+          sibling.play();
+        }
+        else sibling.pause();
       }
     }
-    else if ($ArrayHas(EV_TumblrAudioEvents, ev.type))
+    else if ($ArrayHas(EV_TumblrAudioEvents, ev.type) && $IOfHTMLAudioElement(element))
     { // Media state changed... 'element' should be the audio element
-      if ($IOfHTMLAudioElement(element))
-      {
-        $ClassToggle(element.previousElementSibling, this.#Indicator, !element.paused);
-      }
+      $ClassToggle($ElemPrevSibling(element), this.#Indicator, !element.paused);
     }
   }
 
   connectedCallback()
   {
     // console.log({msg: "[TumblrAudio::connectedCallback] Received connectedCallback request"});
-    const baseNode = this.parentNode;
-    if (baseNode)
+    const baseElement = $ElemParent(this);
+    if (baseElement)
     {
-      this.#excise(baseNode);
-      this.#affix(baseNode);
+      this.#excise(baseElement);
+      this.#affix(baseElement);
 
       this.#DocumentObserver.disconnect();
-      this.#DocumentObserver.observe(baseNode, {
+      this.#DocumentObserver.observe(baseElement, {
         childList: true, subtree: true,
         // @ts-expect-error -- ReadOnlyArray vs. Array
         attributeFilter: EV_TumblrAudioAttributes

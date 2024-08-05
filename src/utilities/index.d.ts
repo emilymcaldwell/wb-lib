@@ -28,6 +28,13 @@ type $AttrUpdateTy = {
   (elem: Element | null | undefined, attr: string | null | undefined, value: string | null | undefined) : void;
 };
 
+type $ElemQueryTy = {
+  <K extends keyof HTMLElementTagNameMap>(elem: { querySelector: ((selectors: K) => HTMLElementTagNameMap[K] | null) }, query: K): HTMLElementTagNameMap[K] | null;
+  <K extends keyof SVGElementTagNameMap>(elem: { querySelector: ((selectors: K) => SVGElementTagNameMap[K] | null) }, query: K): SVGElementTagNameMap[K] | null;
+  <K extends keyof MathMLElementTagNameMap>(elem: { querySelector: ((selectors: K) => MathMLElementTagNameMap[K] | null) }, query: K): MathMLElementTagNameMap[K] | null;
+  <E extends Element = Element>(elem: { querySelector: ((selectors: K) => E | null) }, query: string): E | null;
+};
+
 type $ElemBoundsTy = {
   (elem: null) : null;
   (elem: undefined) : undefined;

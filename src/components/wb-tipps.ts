@@ -1,5 +1,6 @@
-import { $Frozen, $Attr, $AttrUpdate, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
-import { AN_target, TippsVisor, EV_TippsVisor } from "./wb-tipps.visor";
+import { $ListenerAddMany, $ListenerRemoveMany, $IOfHTMLElement, $Frozen, $Attr, $AttrUpdate, $ElemQuerySelfAndAll, $ElemSelfAndAll, $ElemDocument, $ArrayHas } from "../utilities/index"
+import { AN_target } from "./common"
+import { TippsVisor, EV_TippsVisor } from "./wb-tipps.visor";
 export { TippsVisor };
 
 const VisorAttributes = TippsVisor.observedAttributes;
@@ -44,16 +45,14 @@ export class Tipps extends HTMLElement
 
   #excise(elem: Node)
   {
-    if (elem instanceof HTMLElement)
+    if ($IOfHTMLElement(elem))
     {
-      // let list = [elem, ...elem.querySelectorAll('*')];
-      // console.log({msg: "[Tipps::removeEvents] Iterating hierarchy", list: list});
-      // for (const node of list)
+      // console.log({msg: "[Tipps::removeEvents] Iterating hierarchy", list: [elem, ...elem.querySelectorAll('*')]});
       for (const node of $ElemSelfAndAll(elem))
       {
-        if (node instanceof HTMLElement && this.#State.delete(node))
+        if ($IOfHTMLElement(node) && this.#State.delete(node))
         {
-          EV_TippsVisor.forEach(e => node.removeEventListener(e, this.#Visor));
+          $ListenerRemoveMany(node, EV_TippsVisor, this.#Visor);
         }
       }
     }
@@ -62,17 +61,15 @@ export class Tipps extends HTMLElement
   #affix(elem: Node)
   {
     const selector = $Attr(this, AN_target);
-    if (selector && elem instanceof HTMLElement)
+    if (selector && $IOfHTMLElement(elem))
     {
-      // let list = [...(elem.matches(selector) ? [elem] : []) , ...elem.querySelectorAll(selector)];
-      // console.log({msg: "[Tipps::addEvents] Iterating hierarchy", list: list});
-      // for (const node of list)
+      // console.log({msg: "[Tipps::addEvents] Iterating hierarchy", list: [...(elem.matches(selector) ? [elem] : []) , ...elem.querySelectorAll(selector)]});
       for (const node of $ElemQuerySelfAndAll(elem, selector))
       {
-        if (node instanceof HTMLElement && !this.#State.has(node))
+        if ($IOfHTMLElement(node) && !this.#State.has(node))
         {
           this.#State.add(node);
-          EV_TippsVisor.forEach(e => node.addEventListener(e, this.#Visor));
+          $ListenerAddMany(node, EV_TippsVisor, this.#Visor);
         }
       }
     }

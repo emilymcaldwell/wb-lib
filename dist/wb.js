@@ -12,6 +12,9 @@ const $TimeoutClear = clearTimeout;
 const $TimeoutSet = setTimeout;
 const $Style = (elem, obj) => $Assign(elem.style, obj);
 const $StrPixels = (px) => px + 'px';
+const $Class = ((elem) => elem?.classList ?? null);
+const $ClassToggle = ((elem, className, force) => $Class(elem)?.toggle(className, force) ?? null);
+const $ClassRemove = ((elem, className) => $ClassToggle(elem, className, false) ?? null);
 const $Attr = (elem, attr) => elem?.getAttribute(attr) ?? null;
 const $AttrAncestor = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 const $AttrUpdate = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
@@ -23,6 +26,13 @@ const $ElemSelfAndAll = ((elem) => [...[elem], ...$ElemQueryAll(elem, '*')]);
 const $ElemBounds = ((elem) => elem?.getBoundingClientRect());
 const $ElemDocument = ((elem) => elem?.ownerDocument);
 const $ArrayHas = ((arr, searchElement) => arr?.includes(searchElement) ?? false);
+const $ListenerAdd = ((elem, type, listener) => elem?.addEventListener(type, listener));
+const $ListenerRemove = ((elem, type, listener) => elem?.removeEventListener(type, listener));
+const $ListenerAddMany = ((elem, types, listener) => types.forEach(x => $ListenerAdd(elem, x, listener)));
+const $ListenerRemoveMany = ((elem, types, listener) => types.forEach(x => $ListenerRemove(elem, x, listener)));
+const $IOfHTMLElement = (elem) => elem instanceof HTMLElement;
+const $IOfHTMLAudioElement = (elem) => elem instanceof HTMLAudioElement;
+const $IOfMouseEvent = (ev) => ev instanceof MouseEvent;
 
 const AN_target = "target";
 const AN_indicator = "indicator";
@@ -30,11 +40,16 @@ const AN_source = "source";
 const AN_margin = "margin";
 const AN_delay = "delay";
 const AN_loiter = "loiter";
+const AN_simultaneous = "simultaneous-playback";
 const EV_Click = "click";
 const EV_MouseDown = "mousedown";
 const EV_MouseMove = "mousemove";
 const EV_MouseOut = "mouseout";
 const EV_MouseOver = "mouseover";
+const EV_MediaPlay = "play";
+const EV_MediaPause = "pause";
+const EV_MediaEnded = "ended";
+
 const EV_TippsVisor = $Frozen([EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click]);
 class TippsVisor extends HTMLElement {
     static QN = 'tipps-visor';
@@ -44,7 +59,7 @@ class TippsVisor extends HTMLElement {
     #CurrentElement = null;
     #DelayHandle;
     #LoiterHandle;
-    #SlottedClassList = () => this.firstElementChild?.classList ?? null;
+    #SlottedClassList = () => $Class(this.firstElementChild);
     constructor() {
         super();
         const ShadowRoot = this.attachShadow({ mode: 'closed' });
@@ -70,7 +85,7 @@ class TippsVisor extends HTMLElement {
         }
     }
     handleEvent(ev) {
-        if (ev instanceof MouseEvent) {
+        if ($IOfMouseEvent(ev)) {
             if (ev.type === EV_MouseMove)
                 this.#onMouseMove(ev);
             if (ev.type === EV_MouseOver)
@@ -106,11 +121,11 @@ class TippsVisor extends HTMLElement {
         this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
         this.#setContent($AttrAncestor(element, this.#Source));
         this.#onMouseMove(ev);
-        $ElemDocument(element).addEventListener(EV_MouseMove, this);
+        $ListenerAdd($ElemDocument(element), EV_MouseMove, this);
     }
     #onTippsUp(ev) {
         const element = ev.target;
-        if (element instanceof HTMLElement) {
+        if ($IOfHTMLElement(element)) {
             this.#CurrentElement = element;
             if (this.#LoiterHandle) {
                 this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle);
@@ -129,7 +144,7 @@ class TippsVisor extends HTMLElement {
     onTippsDown(ev) {
         this.#DelayHandle = $TimeoutClear(this.#DelayHandle);
         this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle);
-        $ElemDocument(this.#CurrentElement)?.removeEventListener(EV_MouseMove, this);
+        $ListenerRemove($ElemDocument(this.#CurrentElement), EV_MouseMove, this);
         if (!ev || $ArrayHas([EV_Click, EV_MouseDown], ev.type))
             this.#postLoiter();
         else
@@ -165,21 +180,21 @@ class Tipps extends HTMLElement {
         }
     });
     #excise(elem) {
-        if (elem instanceof HTMLElement) {
+        if ($IOfHTMLElement(elem)) {
             for (const node of $ElemSelfAndAll(elem)) {
-                if (node instanceof HTMLElement && this.#State.delete(node)) {
-                    EV_TippsVisor.forEach(e => node.removeEventListener(e, this.#Visor));
+                if ($IOfHTMLElement(node) && this.#State.delete(node)) {
+                    $ListenerRemoveMany(node, EV_TippsVisor, this.#Visor);
                 }
             }
         }
     }
     #affix(elem) {
         const selector = $Attr(this, AN_target);
-        if (selector && elem instanceof HTMLElement) {
+        if (selector && $IOfHTMLElement(elem)) {
             for (const node of $ElemQuerySelfAndAll(elem, selector)) {
-                if (node instanceof HTMLElement && !this.#State.has(node)) {
+                if ($IOfHTMLElement(node) && !this.#State.has(node)) {
                     this.#State.add(node);
-                    EV_TippsVisor.forEach(e => node.addEventListener(e, this.#Visor));
+                    $ListenerAddMany(node, EV_TippsVisor, this.#Visor);
                 }
             }
         }
@@ -201,7 +216,104 @@ class Tipps extends HTMLElement {
     }
 }
 
+const EV_TumblrAudioEvents = $Frozen([EV_MediaPlay, EV_MediaPause, EV_MediaEnded]);
+const EV_TumblrAudioAttributes = $Frozen([AN_target, AN_indicator, AN_simultaneous]);
+class TumblrAudio extends HTMLElement {
+    static QN = 'tmblr-audio';
+    static QR = $Frozen([TumblrAudio]);
+    #State = new WeakSet();
+    get #Indicator() { return $Attr(this, AN_indicator) ?? 'playing'; }
+    get #Simultaneous() { return !!($Attr(this, AN_simultaneous)); }
+    #DocumentObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            let attr = mutation.attributeName;
+            let target = mutation.target;
+            if (target === this && attr) {
+                if ($ArrayHas(EV_TumblrAudioAttributes, attr))
+                    this.connectedCallback();
+            }
+            else if (mutation.type === "childList") {
+                mutation.removedNodes.forEach(rn => this.#excise(rn));
+                mutation.addedNodes.forEach(an => this.#affix(an));
+            }
+            else if (mutation.type === "attributes") {
+                this.#excise(target);
+                this.#affix(target);
+            }
+        }
+    });
+    #excise(elem) {
+        if ($IOfHTMLElement(elem)) {
+            for (const node of $ElemSelfAndAll(elem)) {
+                if ($IOfHTMLElement(node) && this.#State.delete(node)) {
+                    $ListenerRemove(node, EV_MouseDown, this);
+                    $ListenerRemoveMany(node, EV_TumblrAudioEvents, this);
+                    $ClassRemove(node, this.#Indicator);
+                }
+            }
+        }
+    }
+    #affix(elem) {
+        const selector = $Attr(this, AN_target);
+        if (selector && $IOfHTMLElement(elem)) {
+            for (const node of $ElemQuerySelfAndAll(elem, selector)) {
+                if ($IOfHTMLElement(node) && !this.#State.has(node)) {
+                    const sibling = node.nextElementSibling;
+                    if ($IOfHTMLAudioElement(sibling)) {
+                        $ClassToggle(node, this.#Indicator, !sibling.paused);
+                    }
+                    $ListenerAdd(node, EV_MouseDown, this);
+                    this.#State.add(node);
+                }
+            }
+        }
+    }
+    handleEvent(ev) {
+        const element = ev.target;
+        if ($IOfMouseEvent(ev)) {
+            if ($IOfHTMLElement(element)) {
+                const sibling = element.nextElementSibling;
+                if ($IOfHTMLAudioElement(sibling)) {
+                    if (!this.#State.has(sibling)) {
+                        $ListenerAddMany(sibling, EV_TumblrAudioEvents, this);
+                        this.#State.add(sibling);
+                    }
+                    if (sibling.paused) {
+                        if (!this.#Simultaneous) {
+                            const baseNode = this.parentElement;
+                            if (baseNode) {
+                                $ElemQuerySelfAndAll(baseNode, "audio").forEach(el => el.pause());
+                            }
+                        }
+                        sibling.play();
+                    }
+                    else
+                        sibling.pause();
+                }
+            }
+        }
+        else if ($ArrayHas(EV_TumblrAudioEvents, ev.type)) {
+            if ($IOfHTMLAudioElement(element)) {
+                $ClassToggle(element.previousElementSibling, this.#Indicator, !element.paused);
+            }
+        }
+    }
+    connectedCallback() {
+        const baseNode = this.parentNode;
+        if (baseNode) {
+            this.#excise(baseNode);
+            this.#affix(baseNode);
+            this.#DocumentObserver.disconnect();
+            this.#DocumentObserver.observe(baseNode, {
+                childList: true, subtree: true,
+                attributeFilter: EV_TumblrAudioAttributes
+            });
+        }
+    }
+}
+
 const Registrations = [
-    ...Tipps.QR
+    ...Tipps.QR,
+    ...TumblrAudio.QR
 ];
 Registrations.forEach(x => customElements.define(`wb-${x.QN}`, x));

@@ -1,19 +1,9 @@
-export const AN_target     : string = "target";
-export const AN_indicator  : string = "indicator";
-export const AN_source     : string = "source";
-export const AN_margin     : string = "margin";
-export const AN_delay      : string = "delay";
-export const AN_loiter     : string = "loiter";
-
-export const EV_Click      : keyof DocumentEventMap = "click";
-export const EV_MouseDown  : keyof DocumentEventMap = "mousedown";
-export const EV_MouseMove  : keyof DocumentEventMap = "mousemove";
-export const EV_MouseOut   : keyof DocumentEventMap = "mouseout";
-export const EV_MouseOver  : keyof DocumentEventMap = "mouseover";
+import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
+import { AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter } from "./common"
+import { EV_Click, EV_MouseDown, EV_MouseMove, EV_MouseOut, EV_MouseOver  } from "./common"
 
 export const EV_TippsVisor : ReadonlyArray<keyof DocumentEventMap> = $Frozen([EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click]);
 
-import { DOMRect_FromView, $Frozen, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
 
 export class TippsVisor extends HTMLElement implements EventListenerObject
 {
@@ -28,7 +18,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
   #DelayHandle: number | undefined;
   #LoiterHandle: number | undefined;
 
-  #SlottedClassList = () => this.firstElementChild?.classList ?? null;
+  #SlottedClassList = () => $Class(this.firstElementChild);
 
   constructor() {
     super();
@@ -69,7 +59,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
 
   handleEvent(ev: Event): void
   {
-    if (ev instanceof MouseEvent)
+    if ($IOfMouseEvent(ev))
     {
       if (ev.type === EV_MouseMove)
         this.#onMouseMove(ev);
@@ -133,13 +123,13 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
     this.#setContent($AttrAncestor(element, this.#Source));
     this.#onMouseMove(ev);
-    $ElemDocument(element).addEventListener(EV_MouseMove, this);
+    $ListenerAdd($ElemDocument(element), EV_MouseMove, this);
   }
 
   #onTippsUp(ev: MouseEvent)
   {
     const element = ev.target;
-    if (element instanceof HTMLElement)
+    if ($IOfHTMLElement(element))
     {
       this.#CurrentElement = element
       if (this.#LoiterHandle)
@@ -165,7 +155,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     this.#DelayHandle = $TimeoutClear(this.#DelayHandle)!;
     this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle)!;
 
-    $ElemDocument(this.#CurrentElement)?.removeEventListener(EV_MouseMove, this);
+    $ListenerRemove($ElemDocument(this.#CurrentElement), EV_MouseMove, this);
     // if (ev.type === "click" || ev.type === "mousedown") this.#postLoiter(tipps);
     // else this.#LoiterHandle = setTimeout(() => this.#postLoiter(tipps), tipps.Loiter);
     // if (ev.type === "click" || ev.type === "mousedown") this.#postLoiter();

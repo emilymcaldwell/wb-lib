@@ -13,6 +13,11 @@ export const $Style = (elem: HTMLElement, obj: Partial<CSSStyleDeclaration>) => 
 
 export const $StrPixels = (px: number) => px + 'px';
 
+export const $Class = ((elem: Element | null | undefined) => elem?.classList ?? null) as $ClassTy;
+export const $ClassToggle = ((elem: Element | null | undefined, className: string, force: boolean | undefined) => $Class(elem)?.toggle(className, force) ?? null) as $ClassToggleTy;
+export const $ClassAdd = ((elem: Element | null | undefined, className: string) => $ClassToggle(elem, className, true) ?? null) as $ClassAddRemoveTy;
+export const $ClassRemove = ((elem: Element | null | undefined, className: string) => $ClassToggle(elem, className, false) ?? null) as $ClassAddRemoveTy;
+
 export const $Attr: $AttrTy = (elem, attr) => elem?.getAttribute(attr) ?? null;
 export const $AttrAncestor: $AttrTy = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 export const $AttrUpdate: $AttrUpdateTy = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
@@ -33,3 +38,13 @@ export const $ElemBounds = ((elem: Element | null | undefined) => elem?.getBound
 export const $ElemDocument = ((elem: { ownerDocument: Document } | null | undefined) : Document | null | undefined => elem?.ownerDocument) as $ElemDocumentTy;
 
 export const $ArrayHas = (<T>(arr: Array<T> | null | undefined, searchElement: T) => arr?.includes(searchElement) ?? false) as $ArrayHas;
+
+export const $ListenerAdd = (<T extends EventSource, K extends keyof EventSourceEventMap>(elem: T | null | undefined, type: K, listener: (this: EventSource, ev: EventSourceEventMap[K]) => any) => elem?.addEventListener(type, listener)) as $ListenerAddRemoveTy;
+export const $ListenerRemove = (<T extends EventSource, K extends keyof EventSourceEventMap>(elem: T | null | undefined, type: K, listener: (this: EventSource, ev: EventSourceEventMap[K]) => any) => elem?.removeEventListener(type, listener)) as $ListenerAddRemoveTy;
+export const $ListenerAddMany = (<T extends EventSource, K extends keyof EventSourceEventMap>(elem: T | null | undefined, types: K[], listener: (this: EventSource, ev: EventSourceEventMap[K]) => any) => types.forEach(x => $ListenerAdd(elem, x, listener))) as $ListenerAddRemoveManyTy;
+export const $ListenerRemoveMany = (<T extends EventSource, K extends keyof EventSourceEventMap>(elem: T | null | undefined, types: K[], listener: (this: EventSource, ev: EventSourceEventMap[K]) => any) => types.forEach(x => $ListenerRemove(elem, x, listener))) as $ListenerAddRemoveManyTy;
+
+// export const $IOfHTMLElement: $IsOfHTMLElementTy = (<T>(elem: T) => elem instanceof HTMLElement);
+export const $IOfHTMLElement = (elem: unknown): elem is HTMLElement => elem instanceof HTMLElement;
+export const $IOfHTMLAudioElement = (elem: unknown): elem is HTMLAudioElement => elem instanceof HTMLAudioElement;
+export const $IOfMouseEvent = (ev: unknown): ev is MouseEvent => ev instanceof MouseEvent;

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>HTML 5 Boilerplate</title>
+
+  <script type="module" src="/dist/wb.min.js" async></script>
+
+  <style type="text/css">
+    *
+    {
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .audio-caption::before
+    {
+      content: "⏵";
+      pointer-events: initial;
+    }
+    .audio-caption.playing::before
+    {
+      content: "⏸";
+    }
+    .audio-caption
+    {
+      pointer-events: none;
+      display:flex;
+    }
+
+    .audio-details
+    {
+      display:flex;
+      flex-direction: column;
+      -ms-flex-pack: center;
+      justify-content: center;
+      -ms-flex-align: start;
+      align-items: flex-start;
+      flex: 1 0 auto;
+    }
+  </style>
+</head>
+
+<body style="margin:0" class="tmblr-iframe-overlay tmblr-iframe-themed tmblr-iframe-compact">
+
+  <figure class="tmblr-full">
+    <figcaption class="audio-caption">
+      <span class="tmblr-audio-meta audio-details">
+        <span class="tmblr-audio-meta title">Good Night</span>
+        <span class="tmblr-audio-meta artist">ZEROBASEONE</span>
+        <span class="tmblr-audio-meta album">MELTING POINT</span>
+      </span>
+      <img class="album-cover" src="https://64.media.tumblr.com/b81181232d03b34eb5199a0890166793/d14d002df0401a72-80/s500x750/d298aba431de847246cad7d2755127dda87b8888.jpg" alt="image">
+    </figcaption>
+    <audio controls="controls">
+      <source src="https://64.media.tumblr.com/699ab9fdfb7383f832d760ed7b0b2def/d14d002df0401a72-4f/1b1f3a9b923ee452c2722dc74ade9881a374868d.mp3" type="audio/mpeg">
+    </audio>
+  </figure>
+
+  <wb-tmblr-audio target=".audio-caption"></wb-tmblr-audio>
+  <script>
+    let counterA = 0;
+    function testElemLoop()
+    {
+      let source = document.querySelectorAll('.tmblr-full')[(counterA % 2) ^ (Math.ceil(counterA / 2) % 2)];
+      source.parentElement.appendChild(source.cloneNode(true));
+      counterA++;
+    }
+    // setInterval(testElemLoop, 3000);
+  </script>
+</body>
+
+</html>

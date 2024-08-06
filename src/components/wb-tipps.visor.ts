@@ -1,4 +1,4 @@
-import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrAncestor, $ElemEmplace, $ElemQuery, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
+import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrHierarchy, $ElemEmplace, $ElemQuery, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
 import { AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter } from "./common"
 import { EV_Click, EV_MouseDown, EV_MouseMove, EV_MouseOut, EV_MouseOver  } from "./common"
 
@@ -114,7 +114,8 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     this.#DelayHandle = void 0;
     this.#SlottedClassList()?.add(this.#Indicator);
     this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
-    this.#setContent($AttrAncestor(element, this.#Source));
+    const content = $AttrHierarchy(element, this.#Source);
+    this.#setContent(content && content.length ? $AttrHierarchy(element, this.#Source) : element.innerText);
     this.#onMouseMove(ev);
     $ListenerAdd($ElemDocument(element), EV_MouseMove, this);
   }

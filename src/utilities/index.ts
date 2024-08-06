@@ -20,7 +20,7 @@ export const $ClassAdd = ((elem: Element | null | undefined, className: string) 
 export const $ClassRemove = ((elem: Element | null | undefined, className: string) => $ClassToggle(elem, className, false) ?? null) as $ClassAddRemoveTy;
 
 export const $Attr: $AttrTy = (elem, attr) => elem?.getAttribute(attr) ?? null;
-export const $AttrAncestor: $AttrTy = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
+export const $AttrHierarchy: $AttrTy = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 export const $AttrUpdate: $AttrUpdateTy = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
 
 export const $ElemEmplace = <K extends keyof HTMLElementTagNameMap>(document: Document, parent: Node, tagName: K, options?: ElementCreationOptions): HTMLElementTagNameMap[K] =>

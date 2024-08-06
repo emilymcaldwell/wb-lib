@@ -30,7 +30,7 @@ const $Class = ((elem) => elem?.classList ?? null);
 const $ClassToggle = ((elem, className, force) => $Class(elem)?.toggle(className, force) ?? null);
 const $ClassRemove = ((elem, className) => $ClassToggle(elem, className, false) ?? null);
 const $Attr = (elem, attr) => elem?.getAttribute(attr) ?? null;
-const $AttrAncestor = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
+const $AttrHierarchy = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
 const $AttrUpdate = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
 const $ElemEmplace = (document, parent, tagName, options) => parent.appendChild(document.createElement(tagName, options));
 const $ElemParent = (elem) => elem.parentElement ?? null;
@@ -134,7 +134,8 @@ class TippsVisor extends HTMLElement {
         this.#DelayHandle = void 0;
         this.#SlottedClassList()?.add(this.#Indicator);
         this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
-        this.#setContent($AttrAncestor(element, this.#Source));
+        const content = $AttrHierarchy(element, this.#Source);
+        this.#setContent(content && content.length ? $AttrHierarchy(element, this.#Source) : element.innerText);
         this.#onMouseMove(ev);
         $ListenerAdd($ElemDocument(element), EV_MouseMove, this);
     }

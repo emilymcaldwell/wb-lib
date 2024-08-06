@@ -7,12 +7,13 @@ function DOMRect_FromView(view, margin) {
 const $MutationObserver_Tri = (onAttr, onChildAdded, onChildRemoved) => new MutationObserver((mutations) => {
     for (const mutation of mutations) {
         const attr = mutation.attributeName;
+        const target = mutation.target;
         if (mutation.type === "childList") {
-            mutation.removedNodes.forEach(onChildAdded);
-            mutation.addedNodes.forEach(onChildRemoved);
+            mutation.removedNodes.forEach(rn => onChildRemoved(target, rn));
+            mutation.addedNodes.forEach(an => onChildAdded(target, an));
         }
         else if (attr) {
-            onAttr(mutation.target, attr);
+            onAttr(target, attr);
         }
     }
 });
@@ -182,7 +183,7 @@ class Tipps extends HTMLElement {
         }
         else
             (this.#excise(target), this.#affix(target));
-    }, (addedNode) => this.#affix(addedNode), (removedNode) => this.#affix(removedNode));
+    }, (target, addedNode) => (target === this && this.children.length) ? (this.#Visor.replaceChildren(...this.children)) : (this.#affix(addedNode)), (target, removedNode) => this.#excise(removedNode));
     #excise(elem) {
         if ($IOfHTMLElement(elem)) {
             for (const node of $ElemSelfAndAll(elem)) {
@@ -233,7 +234,7 @@ class TumblrAudio extends HTMLElement {
             this.connectedCallback();
         else
             (this.#excise(target), this.#affix(target));
-    }, (addedNode) => this.#affix(addedNode), (removedNode) => this.#affix(removedNode));
+    }, (target, addedNode) => this.#affix(addedNode), (target, removedNode) => this.#excise(removedNode));
     #excise(elem) {
         if ($IOfHTMLElement(elem)) {
             for (const node of $ElemSelfAndAll(elem)) {

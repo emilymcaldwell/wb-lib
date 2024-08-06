@@ -23,8 +23,8 @@ export class TumblrAudio extends HTMLElement implements EventListenerObject
         this.connectedCallback();
       else (this.#excise(target), this.#affix(target));
     },
-    (addedNode) => this.#affix(addedNode),
-    (removedNode) => this.#affix(removedNode)
+    (target, addedNode) => this.#affix(addedNode),
+    (target, removedNode) => this.#excise(removedNode)
     );
 
   #excise(elem: Node)

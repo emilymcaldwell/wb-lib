@@ -25,8 +25,8 @@ export class Tipps extends HTMLElement
       }
       else (this.#excise(target), this.#affix(target));
     },
-    (addedNode) => this.#affix(addedNode),
-    (removedNode) => this.#affix(removedNode)
+    (target, addedNode) => (target === this && this.children.length) ? (this.#Visor.replaceChildren(...this.children)) : (this.#affix(addedNode)),
+    (target, removedNode) => this.#excise(removedNode)
     );
 
   #excise(elem: Node)
@@ -60,7 +60,6 @@ export class Tipps extends HTMLElement
       }
     }
   }
-
 
   connectedCallback()
   {

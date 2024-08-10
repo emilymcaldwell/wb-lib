@@ -24,8 +24,17 @@ type $AttrTy = {
   (elem: Element | null | undefined, attr: string) : string | null;
 };
 
+type $AttrElementHierarchyTy = {
+  (elem: Element, attr: string) : Element | null;
+  (elem: Element | null | undefined, attr: string) : Element | null;
+};
+
 type $AttrUpdateTy = {
   (elem: Element | null | undefined, attr: string | null | undefined, value: string | null | undefined) : void;
+};
+
+type $AttrConsumeTy = {
+  (elem: Element | null | undefined, attr: string) : string | null;
 };
 
 type $ElemQueryTy = {

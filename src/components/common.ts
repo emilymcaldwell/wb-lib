@@ -6,6 +6,10 @@ export const AN_delay               : string = "delay";
 export const AN_loiter              : string = "loiter";
 /** wide names for wide choices */
 export const AN_simultaneous        : string = "simultaneous";
+export const AN_title               : string = "title";
+
+export const AN_data                : string = "data-";
+export const AN_data_title          : string = AN_data + AN_title;
 
 export const EV_Click               : keyof DocumentEventMap = "click";
 export const EV_MouseDown           : keyof DocumentEventMap = "mousedown";

@@ -1,5 +1,5 @@
-import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrHierarchy, $ElemEmplace, $ElemQuery, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet } from "../utilities/index"
-import { AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter } from "./common"
+import { $ListenerAdd, $ListenerRemove, $IOfHTMLElement, $IOfHTMLAudioElement, $IOfMouseEvent, DOMRect_FromView, $Class, $Frozen, $Style, $Attr, $AttrElementHierarchy, $AttrUpdate, $AttrConsume, $ElemEmplace, $ElemQuery, $ElemBounds, $ElemDocument, $ArrayHas, $MathMax, $MathMin, $StrPixels, $TimeoutClear, $TimeoutSet, $AttrHierarchy } from "../utilities/index"
+import { AN_target, AN_indicator, AN_source, AN_margin, AN_delay, AN_loiter, AN_title, AN_data_title } from "./common"
 import { EV_Click, EV_MouseDown, EV_MouseMove, EV_MouseOut, EV_MouseOver  } from "./common"
 
 export const EV_TippsVisor : ReadonlyArray<keyof DocumentEventMap> = $Frozen([EV_MouseOver, EV_MouseOut, EV_MouseDown, EV_Click]);
@@ -13,6 +13,8 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
   #WrapperElement: HTMLElement;
   #SlotElement: HTMLSlotElement;
   #CurrentElement: HTMLElement | null = null;
+  #TooltipContent: string = '';
+  #SourceElement: Element | null = null;
   #DelayHandle: number | undefined;
   #LoiterHandle: number | undefined;
 
@@ -32,7 +34,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
 
   // get #Target() : string { return $Attr(this, AN_target) ?? '[title]'; }
   get #Indicator() : string { return $Attr(this, AN_indicator) ?? 'active'; }
-  get #Source() : string { return $Attr(this, AN_source) ?? 'title'; }
+  get #Source() : string { return $Attr(this, AN_source) ?? AN_title; }
   get #Margin()  : number { return (+($Attr(this, AN_margin) ?? 0) || 4); }
   get #Delay()  : number { return (+($Attr(this, AN_delay) ?? 0) || 700); }
   get #Loiter() : number { return (+($Attr(this, AN_loiter) ?? 0) || 300); }
@@ -114,8 +116,7 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     this.#DelayHandle = void 0;
     this.#SlottedClassList()?.add(this.#Indicator);
     this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
-    const content = $AttrHierarchy(element, this.#Source);
-    this.#setContent(content && content.length ? $AttrHierarchy(element, this.#Source) : element.innerText);
+    this.#setContent(this.#TooltipContent);
     this.#onMouseMove(ev);
     $ListenerAdd($ElemDocument(element), EV_MouseMove, this);
   }
@@ -125,6 +126,19 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
     const element = ev.target;
     if ($IOfHTMLElement(element))
     {
+      if (this.#Source === AN_title)
+      {
+        this.#SourceElement = $AttrElementHierarchy(element, AN_title);
+        const sourceValue = $AttrConsume(this.#SourceElement, AN_title);
+        $AttrUpdate(this.#SourceElement, AN_data_title, sourceValue);
+        this.#TooltipContent = sourceValue && sourceValue.length ? sourceValue : element.innerText;
+      }
+      else
+      {
+        const content = $AttrHierarchy(element, this.#Source);
+        this.#TooltipContent = content && content.length ? content : element.innerText;
+      }
+
       this.#CurrentElement = element
       if (this.#LoiterHandle)
       {
@@ -140,12 +154,16 @@ export class TippsVisor extends HTMLElement implements EventListenerObject
   {
     this.#LoiterHandle = void 0;
     this.#setContent();
+    this.#TooltipContent = '';
     this.#WrapperElement.style.zIndex = "-1";
     this.#SlottedClassList()?.remove(this.#Indicator);
   }
 
   onTippsDown(ev: MouseEvent | null | undefined)
   {
+    if (this.#SourceElement)
+      $AttrUpdate(this.#SourceElement, AN_title, $AttrConsume(this.#SourceElement, AN_data_title));
+
     this.#DelayHandle = $TimeoutClear(this.#DelayHandle)!;
     this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle)!;
 

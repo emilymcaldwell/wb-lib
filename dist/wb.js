@@ -30,8 +30,10 @@ const $Class = ((elem) => elem?.classList ?? null);
 const $ClassToggle = ((elem, className, force) => $Class(elem)?.toggle(className, force) ?? null);
 const $ClassRemove = ((elem, className) => $ClassToggle(elem, className, false) ?? null);
 const $Attr = (elem, attr) => elem?.getAttribute(attr) ?? null;
-const $AttrHierarchy = (elem, attr) => $Attr(((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`), attr);
+const $AttrHierarchy = (elem, attr) => $Attr($AttrElementHierarchy(elem, attr), attr);
+const $AttrElementHierarchy = (elem, attr) => ((attrQuery) => elem?.matches(attrQuery) ? elem : elem?.closest(attrQuery))(`[${attr}]`) ?? null;
 const $AttrUpdate = (elem, attr, value) => attr && (value ? elem?.setAttribute(attr, value) : elem?.removeAttribute(attr));
+const $AttrConsume = (elem, attr) => ((val) => { val ? $AttrUpdate(elem, attr, null) : null; return val; })($Attr(elem, attr));
 const $ElemEmplace = (document, parent, tagName, options) => parent.appendChild(document.createElement(tagName, options));
 const $ElemParent = (elem) => elem.parentElement ?? null;
 const $ElemNextSibling = (elem) => elem.nextElementSibling ?? null;
@@ -60,6 +62,9 @@ const AN_margin = "margin";
 const AN_delay = "delay";
 const AN_loiter = "loiter";
 const AN_simultaneous = "simultaneous";
+const AN_title = "title";
+const AN_data = "data-";
+const AN_data_title = AN_data + AN_title;
 const EV_Click = "click";
 const EV_MouseDown = "mousedown";
 const EV_MouseMove = "mousemove";
@@ -76,6 +81,8 @@ class TippsVisor extends HTMLElement {
     #WrapperElement;
     #SlotElement;
     #CurrentElement = null;
+    #TooltipContent = '';
+    #SourceElement = null;
     #DelayHandle;
     #LoiterHandle;
     #SlottedClassList = () => $Class(this.firstElementChild);
@@ -88,7 +95,7 @@ class TippsVisor extends HTMLElement {
         this.#SlotElement = $ElemEmplace(ShadowDoc, wrapper, "slot");
     }
     get #Indicator() { return $Attr(this, AN_indicator) ?? 'active'; }
-    get #Source() { return $Attr(this, AN_source) ?? 'title'; }
+    get #Source() { return $Attr(this, AN_source) ?? AN_title; }
     get #Margin() { return (+($Attr(this, AN_margin) ?? 0) || 4); }
     get #Delay() { return (+($Attr(this, AN_delay) ?? 0) || 700); }
     get #Loiter() { return (+($Attr(this, AN_loiter) ?? 0) || 300); }
@@ -134,14 +141,23 @@ class TippsVisor extends HTMLElement {
         this.#DelayHandle = void 0;
         this.#SlottedClassList()?.add(this.#Indicator);
         this.#WrapperElement.style.zIndex = element.style.zIndex ?? 0;
-        const content = $AttrHierarchy(element, this.#Source);
-        this.#setContent(content && content.length ? $AttrHierarchy(element, this.#Source) : element.innerText);
+        this.#setContent(this.#TooltipContent);
         this.#onMouseMove(ev);
         $ListenerAdd($ElemDocument(element), EV_MouseMove, this);
     }
     #onTippsUp(ev) {
         const element = ev.target;
         if ($IOfHTMLElement(element)) {
+            if (this.#Source === AN_title) {
+                this.#SourceElement = $AttrElementHierarchy(element, AN_title);
+                const sourceValue = $AttrConsume(this.#SourceElement, AN_title);
+                $AttrUpdate(this.#SourceElement, AN_data_title, sourceValue);
+                this.#TooltipContent = sourceValue && sourceValue.length ? sourceValue : element.innerText;
+            }
+            else {
+                const content = $AttrHierarchy(element, this.#Source);
+                this.#TooltipContent = content && content.length ? content : element.innerText;
+            }
             this.#CurrentElement = element;
             if (this.#LoiterHandle) {
                 this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle);
@@ -154,10 +170,13 @@ class TippsVisor extends HTMLElement {
     #postLoiter() {
         this.#LoiterHandle = void 0;
         this.#setContent();
+        this.#TooltipContent = '';
         this.#WrapperElement.style.zIndex = "-1";
         this.#SlottedClassList()?.remove(this.#Indicator);
     }
     onTippsDown(ev) {
+        if (this.#SourceElement)
+            $AttrUpdate(this.#SourceElement, AN_title, $AttrConsume(this.#SourceElement, AN_data_title));
         this.#DelayHandle = $TimeoutClear(this.#DelayHandle);
         this.#LoiterHandle = $TimeoutClear(this.#LoiterHandle);
         $ListenerRemove($ElemDocument(this.#CurrentElement), EV_MouseMove, this);
